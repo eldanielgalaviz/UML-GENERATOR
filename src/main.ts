@@ -4,11 +4,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Configurar CORS
+  // Habilitar CORS
   app.enableCors({
-    origin: 'http://localhost:4200', // Tu URL de Angular
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: 'http://localhost:5173', // URL de tu aplicación Vite
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
   });
 
   await app.listen(3000);

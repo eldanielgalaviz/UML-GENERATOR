@@ -11,7 +11,6 @@ import {
   } from '@nestjs/common';
   import { GeminiService } from './gemini.service';
   import { AnalyzeRequirementsDto } from './dto/analyze-requirements.dto';
-  //api
   
   @Controller('api/gemini')
   export class GeminiController {
@@ -25,6 +24,17 @@ import {
     ) {
       try {
         const analysis = await this.geminiService.analyzeRequirements(dto.requirements);
+        
+        // Verificar que cada diagrama tenga código Mermaid válido
+        analysis.diagrams = analysis.diagrams.filter(diagram => {
+          try {
+            return diagram.code && diagram.code.trim().length > 0;
+          } catch (error) {
+            this.logger.warn(`Diagrama ${diagram.type} inválido, omitiendo...`);
+            return false;
+          }
+        });
+  
         return analysis;
       } catch (error) {
         this.logger.error('Error in analyzeRequirements:', error);

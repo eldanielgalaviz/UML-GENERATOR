@@ -1,7 +1,12 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
+
+const db = require('./models');
+const User = require('./models/user');
+const authenticateToken = require('./middleware/auth');
 
 const app = express();
 
@@ -9,72 +14,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Conexión a MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Conectado a MongoDB'))
-  .catch(err => console.error('Error conectando a MongoDB:', err));
-
-// Modelo de Usuario
-const userSchema = new mongoose.Schema({
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true 
-  },
-  password: { 
-    type: String, 
-    required: true 
-  },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
-});
-
-const User = mongoose.model('User', userSchema);
-
-// Middleware de autenticación
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Token no proporcionado' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Token inválido' });
-    }
-    req.user = user;
-    next();
+// Inicializar la base de datos
+db.sequelize.sync()
+  .then(() => {
+    console.log('Base de datos sincronizada');
+  })
+  .catch(err => {
+    console.error('Error sincronizando la base de datos:', err);
   });
-};
 
 // Rutas de autenticación
 app.post('/api/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, email, password, nombre, apellidos, fechaNacimiento} = req.body;
 
     // Verificar si el usuario ya existe
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'El usuario ya existe' });
-    }
+    const existingUser = await User.findOne({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { username },
+          { email }
+        ]
+      }
+    });
 
+    if (existingUser) {
+      return res.status(400).json({
+        message: existingUser.username === username ? 
+          'El nombre de usuario ya está en uso' : 
+          'El email ya está registrado'
+      });
+    }
     // Hashear la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Crear nuevo usuario
-    const user = new User({
+    await User.create({
       email,
       password: hashedPassword
     });
 
-    await user.save();
     res.status(201).json({ message: 'Usuario registrado exitosamente' });
   } catch (error) {
+    console.error('Error en registro:', error);
     res.status(500).json({ message: 'Error en el servidor' });
   }
 });
@@ -84,7 +67,7 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Verificar si el usuario existe
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: 'Usuario no encontrado' });
     }
@@ -97,13 +80,14 @@ app.post('/api/login', async (req, res) => {
 
     // Crear token JWT
     const token = jwt.sign(
-      { userId: user._id }, 
+      { userId: user.id }, 
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     res.json({ token });
   } catch (error) {
+    console.error('Error en login:', error);
     res.status(500).json({ message: 'Error en el servidor' });
   }
 });
@@ -111,9 +95,17 @@ app.post('/api/login', async (req, res) => {
 // Ruta protegida de ejemplo
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findByPk(req.user.userId, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
     res.json(user);
   } catch (error) {
+    console.error('Error en perfil:', error);
     res.status(500).json({ message: 'Error en el servidor' });
   }
 });

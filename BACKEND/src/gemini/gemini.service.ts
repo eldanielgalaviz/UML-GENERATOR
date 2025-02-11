@@ -1,5 +1,3 @@
-// src/gemini/gemini.service.ts
-
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
@@ -99,9 +97,9 @@ export class GeminiService {
     const diagramTypes: DiagramType[] = [
       'classDiagram',
       'sequenceDiagram',
-      'packageDiagram',
       'useCaseDiagram',
-      'componentDiagram'
+      'componentDiagram',
+      'packageDiagram'
     ];
 
     const diagrams = await Promise.all(
@@ -110,33 +108,33 @@ export class GeminiService {
       )
     );
 
-    return diagrams;
+    return diagrams.filter(d => d !== null);
   }
 
   private async generateMermaidDiagram(
     type: DiagramType,
     originalRequirements: string,
     ieee830Requirements: IEEE830Requirement[]
-  ): Promise<MermaidDiagram> {
-    const prompt = this.buildMermaidPrompt(type, originalRequirements, ieee830Requirements);
-    
+  ): Promise<MermaidDiagram | null> {
     try {
+      const prompt = this.buildMermaidPrompt(type, originalRequirements, ieee830Requirements);
+      
       const response = await this.retryOperation(async () => {
         const result = await this.model.generateContent(prompt);
         return result.response.text();
       });
 
-      // Extraer el código Mermaid de la respuesta
-      const mermaidCode = this.extractMermaidCode(response);
+      const mermaidCode = this.extractMermaidCode(response, type);
+      const validatedCode = this.validateMermaidCode(mermaidCode, type);
 
       return {
         type,
         title: this.getDiagramTitle(type),
-        code: mermaidCode
+        code: validatedCode
       };
     } catch (error) {
       this.logger.error(`Error generando diagrama ${type}:`, error);
-      throw new Error(`Error al generar el diagrama ${type}`);
+      return null;
     }
   }
 
@@ -144,144 +142,250 @@ export class GeminiService {
     type: DiagramType, 
     originalRequirements: string,
     ieee830Requirements: IEEE830Requirement[]
-): string {
-    const promptInstructions = {
-        classDiagram: `
-        Genera un diagrama de clases Mermaid válido. 
-        Asegúrate de incluir:
-        - Clases con atributos y métodos 
-        - Relaciones entre clases (herencia, composición, agregación) 
-        - Cardinalidad en las relaciones 
-        - Uso correcto de la sintaxis Mermaid
-        
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        classDiagram
-        class ClaseEjemplo {
-            + atributo1: Tipo
-            - atributoPrivado: Tipo
-            # metodoEjemplo(): TipoRetorno
-        }
-        ClaseEjemplo --|> ClasePadre
-        ClaseEjemplo *-- Componente
-        \`\`\`
-        `,
+  ): string {
+    const templates = {
+      classDiagram: `classDiagram
+    class Usuario {
+        +nombre: String
+        +email: String
+        +password: String
+        +registrar()
+        +login()
+        +crearProyecto()
+    }
+    class Proyecto {
+        +titulo: String
+        +descripcion: String
+        +fechaCreacion: Date
+        +crear()
+        +asignarTarea()
+        +obtenerTareas()
+    }
+    class Tarea {
+        +titulo: String
+        +descripcion: String
+        +estado: String
+        +fechaLimite: Date
+        +actualizarEstado()
+        +obtenerDetalles()
+    }
+    Usuario "1" --> "*" Proyecto : crea
+    Proyecto "1" --> "*" Tarea : contiene`,
 
-        sequenceDiagram: `
-        Genera un diagrama de secuencia Mermaid que muestre: 
-        - El flujo de interacción entre actores y el sistema 
-        - Mensajes enviados y recibidos 
-        - Uso correcto de Mermaid 
-        
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        sequenceDiagram
-        participant Usuario
-        participant Sistema
-        Usuario->>Sistema: Enviar solicitud
-        Sistema-->>Usuario: Respuesta exitosa
-        \`\`\`
-        `,
+      sequenceDiagram: `sequenceDiagram
+    actor U as Usuario
+    participant S as Sistema
+    participant BD as BaseDatos
 
-        activityDiagram: `
-        Genera un diagrama de actividad Mermaid (flowchart) válido. 
-        Incluye:
-        - El flujo de trabajo para la gestión de tareas
-        - Estados de las tareas
-        - Decisiones y acciones
-        - Uso correcto de Mermaid 
-        
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        flowchart TD
-        A[Inicio] -->|Opción 1| B[Tarea Pendiente]
-        B --> C[En Proceso]
-        C -->|Completado| D[Fin]
-        \`\`\`
-        `,
+    U->>S: Solicita registro
+    S-->>U: Formulario registro
+    U->>S: Envía datos
+    S->>BD: Valida datos
+    BD-->>S: Datos válidos
+    S-->>U: Registro exitoso
 
-        erDiagram: `
-        Genera un diagrama de entidad-relación (ER) Mermaid válido. 
-        Incluye:
-        - Entidades principales 
-        - Relaciones y cardinalidad 
-        - Uso correcto de Mermaid 
-        
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        erDiagram
-        CLIENTE ||--o{ PEDIDO : realiza
-        PEDIDO }|--|{ PRODUCTO : contiene
-        \`\`\`
-        `,
+    U->>S: Solicita login
+    S-->>U: Formulario login
+    U->>S: Envía credenciales
+    S->>BD: Verifica credenciales
+    BD-->>S: Credenciales válidas
+    S-->>U: Acceso concedido`,
 
-        flowchart: `
-        Genera un diagrama de flujo Mermaid válido. 
-        Incluye:
-        - El proceso de registro y autenticación
-        - Creación y gestión de proyectos
-        - Uso correcto de Mermaid 
-        
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        flowchart TD
-        Inicio --> VerificarDatos
-        VerificarDatos -->|Datos Válidos| CrearCuenta
-        CrearCuenta --> Fin
-        \`\`\`
-        `,
+      useCaseDiagram: `graph TD
+    Usuario((Usuario))
+    CU1[Registrarse]
+    CU2[Iniciar Sesión]
+    CU3[Crear Proyecto]
+    CU4[Gestionar Tareas]
+    CU5[Asignar Tareas]
+    CU6[Actualizar Estado]
+    
+    Usuario-->CU1
+    Usuario-->CU2
+    Usuario-->CU3
+    Usuario-->CU4
+    CU4-->CU5
+    CU4-->CU6`,
 
-        packageDiagram: `
-        Genera un diagrama de paquetes Mermaid válido. 
-        Asegúrate de:
-        - Usar la palabra clave \`package\`
-        - Definir correctamente los paquetes con \`{}\`
-        - Agregar relaciones si es necesario
+      componentDiagram: `graph TD
+    subgraph Frontend
+        UI[Interfaz Usuario]
+        Auth[Autenticación]
+        PM[Gestión Proyectos]
+        TM[Gestión Tareas]
+    end
+    
+    subgraph Backend
+        API[API REST]
+        Srv[Servicios]
+        DB[(Base Datos)]
+    end
+    
+    UI --> Auth
+    UI --> PM
+    UI --> TM
+    Auth --> API
+    PM --> API
+    TM --> API
+    API --> Srv
+    Srv --> DB`,
 
-        📌 **Ejemplo de sintaxis correcta:**
-        \`\`\`mermaid
-        packageDiagram
-        package SistemaGestion {
-            package ModuloUsuarios {}
-            package ModuloTareas {}
-        }
-        ModuloUsuarios --> ModuloTareas
-        \`\`\`
-        `
+packageDiagram: `graph TD
+    subgraph Presentacion
+        Views[Vistas]
+        Components[Componentes]
+        State[Estado]
+    end
+    
+    subgraph Dominio
+        Usuarios[Usuarios]
+        Proyectos[Proyectos]
+        Tareas[Tareas]
+    end
+    
+    subgraph Datos
+        RepoUsuarios[Repositorio_Usuarios]
+        RepoProyectos[Repositorio_Proyectos]
+        RepoTareas[Repositorio_Tareas]
+    end
+    
+    Presentacion --> Dominio
+    Dominio --> Datos`,
+    };
+
+    const rules = {
+      classDiagram: `REGLAS:
+- Inicia con 'classDiagram'
+- Define clases usando: class NombreClase
+- Atributos: +nombre: tipo
+- Métodos: +nombre()
+- Relaciones: --> para asociación
+- Cardinalidad: "1" --> "*"`,
+      
+      sequenceDiagram: `REGLAS:
+- Inicia con 'sequenceDiagram'
+- Define: actor A as Usuario
+- Flechas: ->> para solicitud
+- Flechas: -->> para respuesta
+- Mantén el orden cronológico`,
+      
+      useCaseDiagram: `REGLAS:
+- Inicia con 'graph TD'
+- Actor: Usuario((nombre))
+- Casos: CU[nombre]
+- Conexiones: -->`,
+      
+      componentDiagram: `REGLAS:
+- Inicia con 'graph TD'
+- Usa subgraph para módulos
+- Componentes: [nombre]
+- Base datos: [(nombre)]
+- Conexiones: -->`,
+      
+      packageDiagram: `REGLAS:
+- Inicia con 'graph TD'
+- Define subgraph para capas
+- Elementos: [nombre]
+- Conexiones: -->`
     };
 
     return `
-    Genera un diagrama Mermaid de tipo ${type} para un sistema de gestión de proyectos.
-    
-    ${promptInstructions[type]}
+Genera un diagrama Mermaid de tipo ${type} para estos requerimientos:
 
-    ⚠️ **IMPORTANTE:**  
-    - Usa **SOLO** la sintaxis de Mermaid  
-    - El diagrama debe comenzar con \`${type}\`  
-    - No incluyas texto explicativo, solo el código del diagrama  
-    - Asegúrate de que la sintaxis sea **válida** y sin errores  
-    - Para relaciones en Mermaid, usa correctamente:  
-      - \`--\` Asociación  
-      - \`--|>\` Herencia  
-      - \`*--\` Composición  
-      - \`o--\` Agregación  
+${originalRequirements}
 
-    Requerimientos originales:  
-    ${originalRequirements}
+${rules[type]}
 
-    Requerimientos IEEE 830:  
-    ${JSON.stringify(ieee830Requirements, null, 2)}
-    `;
-}
+Usa EXACTAMENTE esta estructura base (solo cambia el contenido, no la sintaxis):
 
+${templates[type]}
+
+IMPORTANTE:
+1. NO incluyas explicaciones ni comentarios
+2. El diagrama DEBE empezar con la declaración correcta
+3. Mantén la identación y formato exactos
+4. Usa solo caracteres ASCII
+`;
+  }
+
+  private validateMermaidCode(code: string, type: DiagramType): string {
+    const startTokens = {
+      classDiagram: 'classDiagram',
+      sequenceDiagram: 'sequenceDiagram',
+      useCaseDiagram: 'graph TD',
+      componentDiagram: 'graph TD',
+      packageDiagram: 'graph TD'
+    };
+
+    const requiredElements = {
+      classDiagram: ['class', '{', '}', '-->'],
+      sequenceDiagram: ['actor', 'participant', '->>'],
+      useCaseDiagram: ['((', '))', '[', ']', '-->'],
+      componentDiagram: ['subgraph', '[', ']', '-->'],
+      packageDiagram: ['subgraph', '[', ']', '-->']
+    };
+
+    // Verificar inicio correcto
+    if (!code.startsWith(startTokens[type])) {
+      code = startTokens[type] + '\n' + code;
+    }
+
+    // Verificar elementos requeridos
+    const elements = requiredElements[type];
+    if (elements && !elements.every(elem => code.includes(elem))) {
+      throw new Error(`Faltan elementos requeridos en el diagrama ${type}`);
+    }
+
+    // Limpiar formato
+    code = code.split('\n')
+               .map(line => line.trimRight())
+               .join('\n')
+               .trim();
+
+    return code;
+  }
+
+  private extractMermaidCode(text: string, type: DiagramType): string {
+    try {
+      // Limpiar markdown y espacios
+      let code = text.replace(/```mermaid\n?/g, '')
+                    .replace(/```\n?/g, '')
+                    .replace(/\r\n/g, '\n')
+                    .trim();
+
+      // Extraer el código del diagrama
+      const startToken = type === 'classDiagram' ? 'classDiagram' :
+                        type === 'sequenceDiagram' ? 'sequenceDiagram' : 
+                        'graph TD';
+                        
+      const startIndex = code.indexOf(startToken);
+      if (startIndex === -1) {
+        throw new Error(`No se encontró el inicio del diagrama ${type}`);
+      }
+
+      code = code.substring(startIndex);
+
+      // Validar estructura básica
+      const hasOpenBraces = code.includes('{');
+      const hasCloseBraces = code.includes('}');
+      if (type === 'classDiagram' && hasOpenBraces !== hasCloseBraces) {
+        throw new Error('Las llaves no están balanceadas');
+      }
+
+      return code;
+    } catch (error) {
+      this.logger.error('Error procesando código Mermaid:', error);
+      throw new Error(`Error en la sintaxis del diagrama: ${error.message}`);
+    }
+  }
 
   private getDiagramTitle(type: DiagramType): string {
     const titles = {
       classDiagram: 'Diagrama de Clases',
       sequenceDiagram: 'Diagrama de Secuencia',
-      activityDiagram: 'Diagrama de Actividades',
-      erDiagram: 'Diagrama Entidad-Relación',
-      flowchart: 'Diagrama de Flujo'
+      useCaseDiagram: 'Diagrama de Casos de Uso',
+      componentDiagram: 'Diagrama de Componentes',
+      packageDiagram: 'Diagrama de Paquetes'
     };
     return titles[type];
   }
@@ -289,26 +393,9 @@ export class GeminiService {
   private cleanJsonResponse(text: string): string {
     let cleaned = text.substring(text.indexOf('{'));
     cleaned = cleaned.substring(0, cleaned.lastIndexOf('}') + 1);
-    cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    return cleaned.trim();
-  }
-
-  private extractMermaidCode(text: string): string {
-    // Eliminar cualquier texto antes del tipo de diagrama
-    const diagramTypes = ['classDiagram', 'sequenceDiagram', 'flowchart', 'erDiagram'];
-    let code = text;
-    
-    for (const type of diagramTypes) {
-      const startIndex = code.indexOf(type);
-      if (startIndex !== -1) {
-        code = code.substring(startIndex);
-        break;
-      }
-    }
-
-    // Limpiar formato markdown si existe
-    code = code.replace(/```mermaid\n?/g, '').replace(/```\n?/g, '');
-    
-    return code.trim();
+    cleaned = cleaned.replace(/```json\n?/g, '')
+                    .replace(/```\n?/g, '')
+                    .trim();
+    return cleaned;
   }
 }

@@ -19,7 +19,7 @@ export class GeminiService {
   private readonly RETRY_DELAY = 1000;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY')!;
+    const apiKey = this.configService.get<string>('AIzaSyDWS0fNScKBQkZawWoDC5zmZsR5YlDLF8E')!;
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY no está configurada');
     }

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import mermaid from 'mermaid';
+import type { MermaidConfig } from 'mermaid';
 
 interface Diagram {
   type: string;
@@ -17,14 +18,14 @@ const DiagramTypeMap: { [key: string]: string } = {
   'componentDiagram': 'Diagrama de Componentes'
 };
 
-const LiveUMLViewer: React.FC = () => {
+const LiveUMLViewer = () => {
   const [requirements, setRequirements] = useState('');
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    mermaid.initialize({
+    const config: Partial<MermaidConfig> = {
       startOnLoad: true,
       theme: 'default',
       securityLevel: 'loose',
@@ -39,11 +40,10 @@ const LiveUMLViewer: React.FC = () => {
       },
       er: {
         useMaxWidth: false,
-      },
-      stateDiagram: {
-        useMaxWidth: false,
       }
-    });
+    };
+
+    mermaid.initialize(config);
   }, []);
 
   const renderDiagram = async (code: string, elementId: string) => {

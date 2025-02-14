@@ -20,9 +20,20 @@ return null;
 }
 
 async login(user: any) {
-const payload = { email: user.email, sub: user.id };
-return {
-    access_token: this.jwtService.sign(payload),
-};
-}
+    const payload = {
+        email: user.email,
+        sub: user.id,
+        username: user.username,
+        nombre: user.nombre
+    };
+    return {
+        access_token: this.jwtService.sign(payload),
+        user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        nombre: user.nombre
+        }
+    };
+    }
 }

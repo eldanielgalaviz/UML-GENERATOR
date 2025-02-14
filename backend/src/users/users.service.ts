@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -20,8 +20,14 @@ export class UsersService {
       ],
     });
 
+    
+
     if (existingUser) {
       throw new ConflictException('Email o nombre de usuario ya existe');
+    } 
+    
+    else if (createUserDto.password !== createUserDto.confirmPassword) {
+      throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);

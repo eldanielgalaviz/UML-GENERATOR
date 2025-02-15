@@ -1,29 +1,9 @@
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import "./LoginStyle.css";
 
 const LoginAccess = () => {
   const [action, setAction] = useState("Iniciar Sesión");
   const [formErrors, setFormErrors] = useState<string[]>([]);
-
-  const calculateAge = (birthDate: string): number => {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const age = calculateAge(e.target.value);
-    const ageInput = document.getElementById('age') as HTMLInputElement;
-    if (ageInput) {
-      ageInput.value = age.toString();
-    }
-  };
 
   const validateForm = (): boolean => {
     const errors: string[] = [];
@@ -177,22 +157,13 @@ const LoginAccess = () => {
                 id="email" 
               />
             </div>
-            <div className="input date-input">
+            <div className="input">
               <img src="" alt="" className="usericon" />
-              <div className="date-container">
-                <input 
-                  type="date" 
-                  name="birth_date" 
-                  id="birth_date"
-                  onChange={handleDateChange}
-                />
-                <input 
-                  type="text" 
-                  id="age" 
-                  readOnly 
-                  placeholder="Edad"
-                />
-              </div>
+              <input 
+                type="date" 
+                name="birth_date" 
+                id="birth_date"
+              />
             </div>
             <div className="input">
               <img src="" alt="" className="passwordicon" />

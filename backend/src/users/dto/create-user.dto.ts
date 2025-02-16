@@ -19,8 +19,8 @@ email: string;
 password: string;
 
 @IsNotEmpty()
-    @IsString()
-    confirmPassword: string;
+@IsString()
+confirmPassword: string;
 
 @IsString()
 @IsNotEmpty()

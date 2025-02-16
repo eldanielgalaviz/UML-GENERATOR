@@ -33,4 +33,16 @@ createdAt: Date;
 
 @UpdateDateColumn()
 updatedAt: Date;
+
+@Column({ default: false })
+    isEmailConfirmed: boolean;
+
+@Column({ type: 'varchar', nullable: true })
+    confirmationToken: string | null;
+
+@Column({ type: 'varchar', nullable: true })
+    passwordResetToken: string | null;
+
+@Column({ type: 'timestamp', nullable: true })
+    passwordResetExpires: Date | null;
 }

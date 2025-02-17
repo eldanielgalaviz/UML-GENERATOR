@@ -1,4 +1,4 @@
-.container{
+.container {
     display: flex;
     flex-direction: column;
     margin: auto;
@@ -9,7 +9,7 @@
     border-radius: 2%;
 }
 
-.header{
+.header {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -18,14 +18,14 @@
     margin-top: 30px;
 }
 
-.text{
+.text {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     color: #000022;
     font-size: 48px;
     font-weight: 700;
 }
 
-.underline{
+.underline {
     width: 61px;
     height: 6px;
     background: #000022;
@@ -53,14 +53,14 @@
     border: 1px solid #d32f2f;
 }
 
-.inputs{
+.inputs {
     margin-top: 55px;
     display: flex;
     flex-direction: column;
     gap: 25px;
 }
 
-.input{
+.input {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     display: flex;
     align-items: center;
@@ -69,13 +69,14 @@
     height: 80px;
     background: #eaeaea;
     border-radius: 6px;
+    position: relative;
 }
 
-.input img{
+.input img {
     margin: 0px 30px;
 }
 
-.input input{
+.input input {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     height: 50px;
     width: 400px;
@@ -84,6 +85,27 @@
     outline: none;
     color: #797979;
     font-size: 19px;
+}
+
+.input input[type="password"],
+.input input[type="text"] {
+    width: 350px;
+}
+
+.password-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+}
+
+.eye-icon {
+    transition: all 0.2s ease;
+}
+
+.password-toggle:hover .eye-icon {
+    stroke: #000022;
 }
 
 .input input[type="date"] {
@@ -108,7 +130,51 @@
     font-size: 16px;
 }
 
-.forgot-password{
+/* Nuevo estilo para el tooltip */
+.password-tooltip {
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000022;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    animation: fadeIn 0.3s ease forwards;
+}
+
+.password-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 5px 5px 5px;
+    border-style: solid;
+    border-color: transparent transparent #000022 transparent;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 10px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.input.password-error input {
+    border: 1px solid #d32f2f;
+    background-color: rgba(211, 47, 47, 0.05);
+}
+
+.forgot-password {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     padding-left: 62px;
     margin-top: 27px;
@@ -116,20 +182,20 @@
     font-size: 18px;
 }
 
-.forgot-password span{
+.forgot-password span {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     color: blue;
     cursor: pointer;
 }
 
-.sumbit-container{
+.sumbit-container {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     display: flex;
     gap: 30px;
     margin: 60px auto;
 }
 
-.submit{
+.submit {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -144,7 +210,7 @@
     border: none;
 }
 
-.gray{
+.gray {
     background: #eaeaea;
     color: #676767;
 }

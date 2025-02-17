@@ -41,7 +41,7 @@ const LoginAccess = () => {
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,8 +75,8 @@ const LoginAccess = () => {
         });
 
         const endpoint = action === "Iniciar Sesión" 
-          ? `${API_URL}/api/auth/login` 
-          : `${API_URL}/api/auth/register`;
+          ? `${API_URL}/auth/login` 
+          : `${API_URL}/auth/register`;
         
         const response = await fetch(endpoint, {
           method: "POST",

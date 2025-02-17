@@ -315,8 +315,8 @@ const LoginAccess = () => {
                   <input 
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirmar Contraseña" 
-                    name="confirm_password" 
-                    id="confirm_password" 
+                    name="confirmPassword" 
+                    id="confirmPassword" 
                     pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
                     title="Debe contener al menos 6 caracteres, una mayúscula y un número"
                     onFocus={() => setShowConfirmPasswordHint(true)}

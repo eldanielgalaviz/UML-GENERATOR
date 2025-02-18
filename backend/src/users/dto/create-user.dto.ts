@@ -32,7 +32,7 @@ apellidoPaterno: string;
 
 @IsString()
 @IsNotEmpty()
-apellidoMaternoW: string;
+apellidoMaterno: string;
 
 @IsDate()
 @Type(() => Date)

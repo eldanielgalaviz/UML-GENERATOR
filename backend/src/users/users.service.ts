@@ -1,10 +1,11 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, Not } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PasswordValidator } from '../auth/password.validator';
 import * as bcrypt from 'bcrypt';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -66,11 +67,11 @@ export class UsersService {
     try {
       const user = await this.usersRepository.findOne({ 
         where: { id },
-        select: ['id', 'email', 'username', 'nombre', 'isEmailConfirmed'] // No devolver datos sensibles
+        select: ['id', 'email', 'username', 'nombre', 'apellidoPaterno', 'apellidoMaterno', 'fechaNacimiento', 'isEmailConfirmed'] // No devolver datos sensibles
       });
       
       if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
       }
       
       return user;
@@ -165,6 +166,44 @@ export class UsersService {
         throw error;
       }
       throw new InternalServerErrorException('Error al actualizar el usuario');
+    }
+  }
+  
+  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<User> {
+    try {
+      // Si se actualiza el email, verificar que no esté en uso
+
+      // Si se actualiza el username, verificar que no esté en uso
+      if (updateProfileDto.username) {
+        const existingUser = await this.usersRepository.findOne({
+          where: { 
+            username: updateProfileDto.username,
+            id: Not(userId)
+          }
+        });
+
+        if (existingUser) {
+          throw new ConflictException('El nombre de usuario ya está en uso');
+        }
+      }
+
+      await this.usersRepository.update(userId, updateProfileDto);
+
+      const updatedUser = await this.usersRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'username', 'nombre', 'apellidoPaterno', 'apellidoMaterno', 'fechaNacimiento']
+      });
+
+      if (!updatedUser) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof ConflictException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al actualizar el perfil');
     }
   }
 }

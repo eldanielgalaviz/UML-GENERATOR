@@ -250,8 +250,8 @@ const LoginAccess = () => {
                   <input 
                     type="text" 
                     placeholder="Nombre(s)" 
-                    name="name" 
-                    id="name" 
+                    name="nombre" 
+                    id="nombre" 
                   />
                 </div>
                 <div className="input">
@@ -259,8 +259,8 @@ const LoginAccess = () => {
                   <input 
                     type="text" 
                     placeholder="Apellido Paterno" 
-                    name="paternal_surname" 
-                    id="paternal_surname" 
+                    name="ApellidoPaterno" 
+                    id="ApellidoPaterno" 
                   />
                 </div>
                 <div className="input">
@@ -268,8 +268,8 @@ const LoginAccess = () => {
                   <input 
                     type="text" 
                     placeholder="Apellido Materno" 
-                    name="maternal_surname" 
-                    id="maternal_surname" 
+                    name="ApellidoMaterno" 
+                    id="ApellidoMaterno" 
                   />
                 </div>
                 <div className="input">
@@ -285,8 +285,8 @@ const LoginAccess = () => {
                   <img src="" alt="" className="usericon" />
                   <input 
                     type="date" 
-                    name="birth_date" 
-                    id="birth_date"
+                    name="fechaNacimiento" 
+                    id="fechaNacimiento"
                   />
                 </div>
                 <div className="input">

@@ -14,6 +14,14 @@ private jwtService: JwtService,
 private emailService: EmailService,
 ) {}    
 
+async validateToken(token: string) {
+  try {
+    return this.jwtService.verify(token);
+  } catch (error) {
+    throw new UnauthorizedException('Token inválido');
+  }
+}
+
 async register(createUserDto: any) {
   // Generar token de confirmación
   const confirmationToken = crypto.randomBytes(32).toString('hex');

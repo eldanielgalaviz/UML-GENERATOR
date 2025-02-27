@@ -1,82 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import mermaid from 'mermaid';
+import { analyzeRequirements, generateCode } from '../services/api.service';
 
-interface Diagram {
-  type: string;
+interface DiagramType {
+  type: 'classDiagram' | 'sequenceDiagram' | 'useCaseDiagram' | 'componentDiagram' | 'packageDiagram';
   title: string;
   code: string;
 }
 
-const DiagramTypeMap: { [key: string]: string } = {
-  'classDiagram': 'Diagrama de Clases',
-  'sequenceDiagram': 'Diagrama de Secuencia',
-  'erDiagram': 'Diagrama Entidad-Relación',
-  'flowchart': 'Diagrama de Flujo',
-  'stateDiagram': 'Diagrama de Estados',
-  'componentDiagram': 'Diagrama de Componentes'
+interface AnalysisResponse {
+  requirements: any[];
+  diagrams: DiagramType[];
+  generatedCode?: any;
+}
+
+interface UMLViewerProps {
+  onAnalysisComplete?: (response: AnalysisResponse) => void;
+}
+
+const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const renderDiagram = async () => {
+      try {
+        // @ts-ignore
+        if (window.mermaid) {
+          console.log('Intentando renderizar diagrama');
+          // @ts-ignore
+          await window.mermaid.run();
+          console.log('Diagrama renderizado exitosamente');
+        } else {
+          console.log('Mermaid no está disponible');
+          setError('Mermaid no está cargado');
+        }
+      } catch (err) {
+        console.error('Error al renderizar:', err);
+        setError(`Error al renderizar: ${err}`);
+      }
+    };
+
+    renderDiagram();
+  }, [code]);
+
+  return (
+    <div className="border rounded p-4">
+      {error ? (
+        <div className="text-red-500">{error}</div>
+      ) : (
+        <div className="mermaid bg-white">
+          {code}
+        </div>
+      )}
+    </div>
+  );
 };
 
-const LiveUMLViewer: React.FC = () => {
+const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
   const [requirements, setRequirements] = useState('');
-  const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [diagrams, setDiagrams] = useState<DiagramType[]>([]);
+  const [selectedDiagram, setSelectedDiagram] = useState<DiagramType | null>(null);
+  const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
+  const [mermaidLoaded, setMermaidLoaded] = useState(false);
 
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'default',
-      securityLevel: 'loose',
-      flowchart: { 
-        useMaxWidth: false,
-        htmlLabels: true
-      },
-      sequence: {
-        useMaxWidth: false,
-        showSequenceNumbers: true,
-        boxMargin: 10,
-      },
-      er: {
-        useMaxWidth: false,
-      },
-      stateDiagram: {
-        useMaxWidth: false,
+    const loadMermaid = async () => {
+      try {
+        console.log('Intentando cargar Mermaid...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js';
+        script.async = true;
+
+        script.onload = () => {
+          console.log('Script de Mermaid cargado');
+          // @ts-ignore
+          window.mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default'
+          });
+          setMermaidLoaded(true);
+          console.log('Mermaid inicializado');
+        };
+
+        script.onerror = (e) => {
+          console.error('Error al cargar Mermaid:', e);
+          setError('Error al cargar la librería de diagramas');
+        };
+
+        document.head.appendChild(script);
+      } catch (err) {
+        console.error('Error en loadMermaid:', err);
+        setError('Error al configurar la librería de diagramas');
       }
-    });
+    };
+
+    loadMermaid();
   }, []);
 
-  const renderDiagram = async (code: string, elementId: string) => {
-    try {
-      const cleanCode = code.trim();
-      if (!cleanCode) {
-        console.error('Código de diagrama vacío');
-        return;
-      }
-
-      console.log('Renderizando diagrama:', elementId, cleanCode);
-      
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.innerHTML = cleanCode;
-        await mermaid.run({
-          nodes: [element]
-        });
-      }
-    } catch (error) {
-      console.error('Error al renderizar diagrama:', elementId, error);
-    }
-  };
-
-  useEffect(() => {
-    if (diagrams.length > 0) {
-      diagrams.forEach((diagram, index) => {
-        renderDiagram(diagram.code, `mermaid-diagram-${index}`);
-      });
-    }
-  }, [diagrams]);
-
-  const analyzeDiagrams = async () => {
+  const handleAnalyze = async () => {
     if (!requirements.trim()) {
       setError('Por favor ingresa los requerimientos');
       return;
@@ -85,107 +108,142 @@ const LiveUMLViewer: React.FC = () => {
     try {
       setLoading(true);
       setError('');
+      console.log('Enviando requerimientos al servidor...');
 
-      const requestedDiagrams = [
-        'sequenceDiagram',
-        'classDiagram',
-        'erDiagram',
-        'componentDiagram'
-      ];
+      const data = await analyzeRequirements(requirements.trim());
+      console.log('Datos recibidos:', data);
 
-      console.log('Enviando requerimientos:', requirements);
-
-      const response = await axios.post('http://localhost:3000/api/gemini/analyze', {
-        requirements: requirements.trim(),
-        diagramTypes: requestedDiagrams
-      });
-
-      console.log('Respuesta del servidor:', response.data);
-
-      if (response.data.diagrams && response.data.diagrams.length > 0) {
-        const validDiagrams = response.data.diagrams
-          .filter((d: Diagram) => d.code && d.code.trim())
-          .map((d: Diagram) => ({
-            ...d,
-            title: DiagramTypeMap[d.type] || d.title
-          }));
-
-        if (validDiagrams.length > 0) {
-          setDiagrams(validDiagrams);
-        } else {
-          setError('No se generaron diagramas válidos');
+      if (data.diagrams && Array.isArray(data.diagrams)) {
+        setDiagrams(data.diagrams);
+        setAnalysisResponse(data);
+        if (data.diagrams.length > 0) {
+          setSelectedDiagram(data.diagrams[0]);
+        }
+        if (onAnalysisComplete) {
+          onAnalysisComplete(data);
         }
       } else {
-        setError('No se recibieron diagramas del servidor');
+        throw new Error('No se recibieron diagramas válidos');
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 
-                         err.response?.data?.message || 
-                         err.message || 
-                         'Error al analizar los requerimientos';
-      setError(errorMessage);
-      console.error('Error completo:', err);
+      console.error('Error en handleAnalyze:', err);
+      setError(err.message || 'Error al analizar los requerimientos');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGenerateCode = async () => {
+    if (!analysisResponse?.diagrams || diagrams.length === 0) {
+      setError('Primero debes generar los diagramas');
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      setError('');
+      console.log('Generando código...');
+
+      const codeData = await generateCode(
+        analysisResponse.diagrams,
+        analysisResponse.requirements
+      );
+      
+      console.log('Código generado:', codeData);
+
+      // Actualizar el análisis con el código generado
+      const updatedAnalysis = {
+        ...analysisResponse,
+        generatedCode: codeData
+      };
+
+      setAnalysisResponse(updatedAnalysis);
+      
+      if (onAnalysisComplete) {
+        onAnalysisComplete(updatedAnalysis);
+      }
+    } catch (err: any) {
+      console.error('Error generando código:', err);
+      setError(err.message || 'Error al generar el código');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
+    <div className="p-4">
+      <div className="mb-4">
+        <p className="text-sm text-gray-600 mb-2">
+          Estado de Mermaid: {mermaidLoaded ? 'Cargado' : 'No cargado'}
+        </p>
+      </div>
+
       <div className="mb-4">
         <textarea
-          className="w-full p-2 border rounded-md min-h-[200px]"
           value={requirements}
           onChange={(e) => setRequirements(e.target.value)}
-          placeholder="Ingresa tus requerimientos aquí..."
+          placeholder="Ingresa los requerimientos aquí..."
+          className="w-full p-2 border rounded min-h-[100px]"
         />
       </div>
 
-      <button
-        onClick={analyzeDiagrams}
-        disabled={loading}
-        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-      >
-        {loading ? 'Generando diagramas...' : 'Generar Diagramas'}
-      </button>
+      <div className="mb-4 flex gap-4">
+        <button
+          onClick={handleAnalyze}
+          disabled={loading || !mermaidLoaded}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          {loading ? 'Analizando...' : 'Generar Diagramas'}
+        </button>
+
+        <button
+          onClick={handleGenerateCode}
+          disabled={generating || !analysisResponse?.diagrams || diagrams.length === 0}
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+        >
+          {generating ? 'Generando código...' : 'Generar Código'}
+        </button>
+      </div>
 
       {error && (
-        <div className="text-red-500 mt-4 p-4 bg-red-50 rounded">
+        <div className="mb-4 text-red-500 p-2 border border-red-300 rounded">
           {error}
         </div>
       )}
 
-      <div className="mt-8 grid grid-cols-1 gap-8">
-        {diagrams.map((diagram, index) => (
-          <div key={index} className="border rounded-lg p-4 bg-white shadow">
-            <h3 className="text-xl font-bold mb-4">{diagram.title}</h3>
-            <div className="mermaid-container bg-white p-4 rounded shadow-inner overflow-auto">
-              <div 
-                id={`mermaid-diagram-${index}`} 
-                className="mermaid"
-                style={{ minHeight: '200px' }}
-              >
-                {diagram.code}
-              </div>
+      {diagrams.length > 0 && (
+        <div className="grid grid-cols-12 gap-4">
+          {/* Lista de diagramas */}
+          <div className="col-span-3">
+            <h3 className="font-bold mb-2">Diagramas:</h3>
+            <div className="space-y-2">
+              {diagrams.map((diagram, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedDiagram(diagram)}
+                  className={`w-full text-left p-2 rounded ${
+                    selectedDiagram === diagram ? 'bg-blue-100' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  {diagram.title}
+                </button>
+              ))}
             </div>
-            <details className="mt-2">
-              <summary className="cursor-pointer text-sm text-gray-600">Ver código</summary>
-              <pre className="mt-2 p-4 bg-gray-100 rounded text-sm overflow-auto">
-                {diagram.code}
-              </pre>
-            </details>
           </div>
-        ))}
-      </div>
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm text-gray-600">Debug Info</summary>
-        <pre className="mt-2 p-4 bg-gray-100 rounded text-sm overflow-auto">
-          {JSON.stringify({ diagrams }, null, 2)}
-        </pre>
-      </details>
+          {/* Visualización del diagrama */}
+          <div className="col-span-9">
+            {selectedDiagram && (
+              <div className="border rounded-lg p-4 bg-white">
+                <h4 className="font-bold mb-2">{selectedDiagram.title}</h4>
+                <MermaidDiagram code={selectedDiagram.code} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default LiveUMLViewer;
+export default UMLViewer;

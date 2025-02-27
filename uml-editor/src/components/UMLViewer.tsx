@@ -134,7 +134,7 @@ const LiveUMLViewer: React.FC = () => {
     <div className="container mx-auto p-4">
       <div className="mb-4">
         <textarea
-          className="w-full p-2 border rounded-md min-h-[200px]"
+          className="w-full p-2 border rounded-md"
           value={requirements}
           onChange={(e) => setRequirements(e.target.value)}
           placeholder="Ingresa tus requerimientos aquí..."
@@ -178,7 +178,7 @@ const LiveUMLViewer: React.FC = () => {
         ))}
       </div>
 
-      <details className="mt-4">
+      <details>
         <summary className="cursor-pointer text-sm text-gray-600">Debug Info</summary>
         <pre className="mt-2 p-4 bg-gray-100 rounded text-sm overflow-auto">
           {JSON.stringify({ diagrams }, null, 2)}

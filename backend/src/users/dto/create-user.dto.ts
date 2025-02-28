@@ -18,7 +18,7 @@ email: string;
 })
 password: string;
 
-@IsNotEmpty()08
+@IsNotEmpty()
 @IsString()
 confirmPassword: string;
 

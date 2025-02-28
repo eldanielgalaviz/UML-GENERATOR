@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { analyzeRequirements, generateCode } from '../services/api.service';
+import React, { useState, useEffect } from "react";
+import { analyzeRequirements, generateCode } from "../services/api.service";
+import { FileText, MoreHorizontal } from "lucide-react";
 
 interface DiagramType {
-  type: 'classDiagram' | 'sequenceDiagram' | 'useCaseDiagram' | 'componentDiagram' | 'packageDiagram';
+  type:
+    | "classDiagram"
+    | "sequenceDiagram"
+    | "useCaseDiagram"
+    | "componentDiagram"
+    | "packageDiagram";
   title: string;
   code: string;
 }
@@ -18,23 +24,23 @@ interface UMLViewerProps {
 }
 
 const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     const renderDiagram = async () => {
       try {
         // @ts-ignore
         if (window.mermaid) {
-          console.log('Intentando renderizar diagrama');
+          console.log("Intentando renderizar diagrama");
           // @ts-ignore
           await window.mermaid.run();
-          console.log('Diagrama renderizado exitosamente');
+          console.log("Diagrama renderizado exitosamente");
         } else {
-          console.log('Mermaid no está disponible');
-          setError('Mermaid no está cargado');
+          console.log("Mermaid no está disponible");
+          setError("Mermaid no está cargado");
         }
       } catch (err) {
-        console.error('Error al renderizar:', err);
+        console.error("Error al renderizar:", err);
         setError(`Error al renderizar: ${err}`);
       }
     };
@@ -47,52 +53,54 @@ const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
       {error ? (
         <div className="text-red-500">{error}</div>
       ) : (
-        <div className="mermaid bg-white">
-          {code}
-        </div>
+        <div className="mermaid bg-white">{code}</div>
       )}
     </div>
   );
 };
 
 const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
-  const [requirements, setRequirements] = useState('');
+  const [requirements, setRequirements] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [diagrams, setDiagrams] = useState<DiagramType[]>([]);
-  const [selectedDiagram, setSelectedDiagram] = useState<DiagramType | null>(null);
-  const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
+  const [selectedDiagram, setSelectedDiagram] = useState<DiagramType | null>(
+    null
+  );
+  const [analysisResponse, setAnalysisResponse] =
+    useState<AnalysisResponse | null>(null);
   const [mermaidLoaded, setMermaidLoaded] = useState(false);
 
   useEffect(() => {
     const loadMermaid = async () => {
       try {
-        console.log('Intentando cargar Mermaid...');
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js';
+        console.log("Intentando cargar Mermaid...");
+        const script = document.createElement("script");
+        script.src =
+          "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js";
         script.async = true;
 
         script.onload = () => {
-          console.log('Script de Mermaid cargado');
+          console.log("Script de Mermaid cargado");
           // @ts-ignore
           window.mermaid.initialize({
             startOnLoad: true,
-            theme: 'default'
+            theme: "default",
           });
           setMermaidLoaded(true);
-          console.log('Mermaid inicializado');
+          console.log("Mermaid inicializado");
         };
 
         script.onerror = (e) => {
-          console.error('Error al cargar Mermaid:', e);
-          setError('Error al cargar la librería de diagramas');
+          console.error("Error al cargar Mermaid:", e);
+          setError("Error al cargar la librería de diagramas");
         };
 
         document.head.appendChild(script);
       } catch (err) {
-        console.error('Error en loadMermaid:', err);
-        setError('Error al configurar la librería de diagramas');
+        console.error("Error en loadMermaid:", err);
+        setError("Error al configurar la librería de diagramas");
       }
     };
 
@@ -101,17 +109,17 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
 
   const handleAnalyze = async () => {
     if (!requirements.trim()) {
-      setError('Por favor ingresa los requerimientos');
+      setError("Por favor ingresa los requerimientos");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
-      console.log('Enviando requerimientos al servidor...');
+      setError("");
+      console.log("Enviando requerimientos al servidor...");
 
       const data = await analyzeRequirements(requirements.trim());
-      console.log('Datos recibidos:', data);
+      console.log("Datos recibidos:", data);
 
       if (data.diagrams && Array.isArray(data.diagrams)) {
         setDiagrams(data.diagrams);
@@ -123,11 +131,11 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
           onAnalysisComplete(data);
         }
       } else {
-        throw new Error('No se recibieron diagramas válidos');
+        throw new Error("No se recibieron diagramas válidos");
       }
     } catch (err: any) {
-      console.error('Error en handleAnalyze:', err);
-      setError(err.message || 'Error al analizar los requerimientos');
+      console.error("Error en handleAnalyze:", err);
+      setError(err.message || "Error al analizar los requerimientos");
     } finally {
       setLoading(false);
     }
@@ -135,36 +143,36 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
 
   const handleGenerateCode = async () => {
     if (!analysisResponse?.diagrams || diagrams.length === 0) {
-      setError('Primero debes generar los diagramas');
+      setError("Primero debes generar los diagramas");
       return;
     }
 
     try {
       setGenerating(true);
-      setError('');
-      console.log('Generando código...');
+      setError("");
+      console.log("Generando código...");
 
       const codeData = await generateCode(
         analysisResponse.diagrams,
         analysisResponse.requirements
       );
-      
-      console.log('Código generado:', codeData);
+
+      console.log("Código generado:", codeData);
 
       // Actualizar el análisis con el código generado
       const updatedAnalysis = {
         ...analysisResponse,
-        generatedCode: codeData
+        generatedCode: codeData,
       };
 
       setAnalysisResponse(updatedAnalysis);
-      
+
       if (onAnalysisComplete) {
         onAnalysisComplete(updatedAnalysis);
       }
     } catch (err: any) {
-      console.error('Error generando código:', err);
-      setError(err.message || 'Error al generar el código');
+      console.error("Error generando código:", err);
+      setError(err.message || "Error al generar el código");
     } finally {
       setGenerating(false);
     }
@@ -173,8 +181,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
   return (
     <div className="p-4">
       <div className="mb-4">
-        <p className="text-sm text-gray-600 mb-2">
-          Estado de Mermaid: {mermaidLoaded ? 'Cargado' : 'No cargado'}
+        <p className="text-sm text-white mb-2">
+          Estado de Mermaid: {mermaidLoaded ? "Cargado" : "No cargado"}
         </p>
       </div>
 
@@ -187,22 +195,53 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
         />
       </div>
 
-      <div className="mb-4 flex gap-4">
-        <button
-          onClick={handleAnalyze}
-          disabled={loading || !mermaidLoaded}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-        >
-          {loading ? 'Analizando...' : 'Generar Diagramas'}
-        </button>
-
-        <button
-          onClick={handleGenerateCode}
-          disabled={generating || !analysisResponse?.diagrams || diagrams.length === 0}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
-        >
-          {generating ? 'Generando código...' : 'Generar Código'}
-        </button>
+      <div className="w-full">
+        <div className="rounded-2xl bg-[#40414f] p-4 shadow-lg">
+          {/* Action Buttons */}
+          <div className="flex justify-center mb-4">
+            <button
+              onClick={handleAnalyze}
+              disabled={loading || !mermaidLoaded}
+              className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 text-center me-2 mb-2"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+              {loading ? "Analizando..." : "Generar todos los diagramas"}
+            </button>
+            <button
+              onClick={handleGenerateCode}
+              disabled={
+                generating ||
+                !analysisResponse?.diagrams ||
+                diagrams.length === 0
+              }
+              className="bg-green-500 text-white gap-2 px-4 py-3 rounded-lg hover:bg-green-600 disabled:bg-gray-400 me-2 mb-2"
+            >
+              {generating ? "Generando código..." : "Generar Código"}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+              <FileText className="w-5 h-5" />
+              Genera diagrama de secuencia
+            </button>
+            <button className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+              <FileText className="w-5 h-5" />
+              Genera diagrama de clases
+            </button>
+            <button className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+              <FileText className="w-5 h-5" />
+              Genera diagrama de paquetes
+            </button>
+            <button className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+              <FileText className="w-5 h-5" />
+              Genera diagrama casos de uso
+            </button>
+            <button className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+              <FileText className="w-5 h-5" />
+              Genera diagrama de componentes
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -222,7 +261,9 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
                   key={index}
                   onClick={() => setSelectedDiagram(diagram)}
                   className={`w-full text-left p-2 rounded ${
-                    selectedDiagram === diagram ? 'bg-blue-100' : 'hover:bg-gray-100'
+                    selectedDiagram === diagram
+                      ? "bg-blue-100"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   {diagram.title}

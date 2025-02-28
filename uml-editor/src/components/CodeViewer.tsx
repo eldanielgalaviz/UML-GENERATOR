@@ -97,7 +97,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
               }
             }}
             className={`w-full text-left p-2 rounded ${
-              selectedModule === module.name ? 'bg-blue-100' : 'hover:bg-gray-100'
+              selectedModule === module.name ? 'bg-[#27282e]' : 'hover:bg-[#27282e]'
             }`}
           >
             {module.name}
@@ -113,7 +113,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
               }
             }}
             className={`w-full text-left p-2 rounded ${
-              selectedModule === 'common' ? 'bg-blue-100' : 'hover:bg-gray-100'
+              selectedModule === 'common' ? 'bg-[#27282e]' : 'hover:bg-[#27282e]'
             }`}
           >
             Archivos Comunes
@@ -135,7 +135,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
               key={file.path}
               onClick={() => setSelectedFile(file.path)}
               className={`w-full text-left p-2 rounded ${
-                selectedFile === file.path ? 'bg-blue-100' : 'hover:bg-gray-100'
+                selectedFile === file.path ? 'bg-[#27282e]' : 'hover:bg-[#27282e]'
               }`}
             >
               {file.path.split('/').pop() ?? 'Sin nombre'}
@@ -150,7 +150,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
     <div className="col-span-6">
       <h3 className="font-bold mb-2">Código:</h3>
       {selectedFile ? (
-        <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-[600px] whitespace-pre-wrap">
+        <pre className="bg-[#27282e] p-4 rounded overflow-auto max-h-[600px] whitespace-pre-wrap">
           <code>{getFileContent() ?? ''}</code>
         </pre>
       ) : (
@@ -167,7 +167,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
     return (
       <div className="mb-4">
         <h3 className="font-bold mb-2">Comandos CLI:</h3>
-        <pre className="bg-gray-100 p-4 rounded overflow-auto">
+        <pre className="bg-[#27282e] p-4 rounded overflow-auto">
           {cliCommands.join('\n')}
         </pre>
       </div>
@@ -180,7 +180,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
         <button
           onClick={() => setActiveTab('backend')}
           className={`px-4 py-2 rounded ${
-            activeTab === 'backend' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            activeTab === 'backend' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
           }`}
         >
           Backend (NestJS)
@@ -188,7 +188,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({ generatedCode }) => {
         <button
           onClick={() => setActiveTab('frontend')}
           className={`px-4 py-2 rounded ${
-            activeTab === 'frontend' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            activeTab === 'frontend' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
           }`}
         >
           Frontend (Angular)

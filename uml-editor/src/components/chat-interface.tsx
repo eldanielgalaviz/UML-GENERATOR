@@ -1,24 +1,31 @@
 "use client";
 
-import {
-  Edit,
-  Menu,
-  ChevronDown,
-  Plus,
-  Globe,
-  Lightbulb,
-  ImageIcon,
-  FileText,
-  BarChart3,
-  Code2,
-  MoreHorizontal,
-  Mic,
-} from "lucide-react";
+import { Edit, Menu, FileText, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import UMLViewer from "./UMLViewer";
+import CodeViewer from "./CodeViewer";
+
+interface AnalysisResponse {
+  requirements: any[];
+  diagrams: any[];
+  generatedCode?: any;
+}
 
 export default function ChatInterface() {
   const [isOpen, setIsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<"diagrams" | "code">("diagrams");
+  const [analysisResponse, setAnalysisResponse] =
+    useState<AnalysisResponse | null>(null);
+
+  const handleAnalysisComplete = (response: AnalysisResponse) => {
+    console.log("Análisis completado:", response);
+    setAnalysisResponse(response);
+
+    // Si hay código generado, permitir cambiar a la pestaña de código
+    if (response.generatedCode) {
+      setActiveTab("code");
+    }
+  };
 
   return (
     <div className="dark">
@@ -56,45 +63,46 @@ export default function ChatInterface() {
 
           {/* Main Content */}
           <main className="flex-1 flex flex-col items-center overflow-auto">
-            <div className="w-full max-w-2xl mt-12 px-4 mx-auto">
-              <h1 className="text-4xl font-semibold text-center mb-6">
-                ¿Con qué puedo ayudarte?
+            <div className="w-full max-w-4xl mt-3 px-4 mx-auto">
+              <h1 className="text-3xl font-semibold text-center mb-6">
+                Generador de diagramas y código UML
               </h1>
-
-              {/* Input Area */}
-              <div className="w-full">
-                <div className="rounded-2xl bg-[#40414f] p-4 shadow-lg">
-                  <div className="flex items-center gap-2 mb-4">
-                    <UMLViewer />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <FileText className="w-5 h-5" />
-                      Crea diagrama de secuencia
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <FileText className="w-5 h-5" />
-                      Crea diagrama de clases
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <FileText className="w-5 h-5" />
-                      Crea diagrama de paquetes
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <FileText className="w-5 h-5" />
-                      Crea diagrama casos de uso
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <FileText className="w-5 h-5" />
-                      Crea diagrama de componentes
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
-                      <MoreHorizontal className="w-5 h-5" />
-                      Generar todos los diagramas
-                    </button>
-                  </div>
+              <div className="mt-4 flex gap-4">
+                <button
+                  onClick={() => setActiveTab("diagrams")}
+                  className={`px-4 py-2 rounded-lg ${
+                    activeTab === "diagrams"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  Diagramas
+                </button>
+                <button
+                  onClick={() => setActiveTab("code")}
+                  disabled={!analysisResponse?.generatedCode}
+                  className={`px-4 py-2 rounded-lg ${
+                    activeTab === "code"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-700"
+                  } ${
+                    !analysisResponse?.generatedCode
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  Código Generado
+                </button>
+              </div>
+              <div>
+                <div className="mt-6">
+                  {activeTab === "diagrams" ? (
+                    <UMLViewer onAnalysisComplete={handleAnalysisComplete} />
+                  ) : (
+                    <CodeViewer
+                      generatedCode={analysisResponse?.generatedCode}
+                    />
+                  )}
                 </div>
               </div>
             </div>

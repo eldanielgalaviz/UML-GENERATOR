@@ -10,14 +10,14 @@ export class UsersController {
 
   @Patch('profile')
   async updateProfile(
-    @Request() req,
+    @Request() req: any,
     @Body() updateProfileDto: UpdateProfileDto
   ) {
     return this.usersService.updateProfile(req.user.userId, updateProfileDto);
   }
 
   @Get('profile')
-  async getProfile(@Request() req) {
+  async getProfile(@Request() req: any) {
     console.log('User from request:', req.user);
     return this.usersService.findOne(req.user.userId);
   }

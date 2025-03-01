@@ -51,7 +51,7 @@ async register(createUserDto: any) {
     message: 'Por favor, verifica tu correo electrónico para completar el registro',
     userId: user.id 
   };
-} catch (error) {
+} catch (error: unknown) {
   console.error('Error en el proceso de registro:', error);
   throw error;
 }

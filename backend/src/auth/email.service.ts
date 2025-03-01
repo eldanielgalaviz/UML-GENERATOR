@@ -46,7 +46,7 @@ export class EmailService {
       const result = await this.transporter.sendMail({
         from: {
           name: 'UML Generator',
-          address: this.configService.get('EMAIL_FROM')
+          address: 'generatoruml@gmail.com' // Hardcoded email address
         },
         to,
         subject: 'Confirma tu correo electrónico',
@@ -88,8 +88,8 @@ export class EmailService {
     try {
       await this.transporter.sendMail({
         from: {
-          name: 'Tu Aplicación',
-          address: this.configService.get('EMAIL_FROM')
+          name: 'UML Generator',
+          address: 'generatoruml@gmail.com' // Hardcoded email address
         },
         to: to,
         subject: 'Recuperación de contraseña',

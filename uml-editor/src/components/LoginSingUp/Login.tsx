@@ -31,12 +31,13 @@ const LoginAccess = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  const validatePassword = (password: string): boolean => {
-    if (password.length < 6) return false;
-    if (!/[A-Z]/.test(password)) return false;
-    if (!/[0-9]/.test(password)) return false;
-    return true;
-  };
+
+  //const validatePassword = (password: string): boolean => {
+  //  if (password.length < 6) return false;
+  //  if (!/[A-Z]/.test(password)) return false;
+  //  if (!/[0-9]/.test(password)) return false;
+  //  return true;
+  //};
 
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();

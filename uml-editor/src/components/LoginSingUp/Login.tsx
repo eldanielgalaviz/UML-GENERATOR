@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import "./LoginStyle.css";
+import "./LoginStyle.css"; // Asegúrate de usar el nuevo CSS
 
 interface FormInput extends HTMLInputElement {
   id: string;
@@ -30,14 +30,6 @@ const LoginAccess = () => {
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
-
-
-  //const validatePassword = (password: string): boolean => {
-  //  if (password.length < 6) return false;
-  //  if (!/[A-Z]/.test(password)) return false;
-  //  if (!/[0-9]/.test(password)) return false;
-  //  return true;
-  //};
 
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
@@ -118,8 +110,8 @@ const LoginAccess = () => {
     <svg 
       className="eye-icon" 
       xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
+      width="20" 
+      height="20" 
       viewBox="0 0 24 24" 
       fill="none" 
       stroke="#797979" 
@@ -136,8 +128,8 @@ const LoginAccess = () => {
     <svg 
       className="eye-icon" 
       xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
+      width="20" 
+      height="20" 
       viewBox="0 0 24 24" 
       fill="none" 
       stroke="#797979" 
@@ -201,147 +193,154 @@ const LoginAccess = () => {
         </div>
       ) : (
         <>
-          <div className="inputs">
-            {action === "Iniciar Sesión" ? (
-              <>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="text" 
-                    placeholder="Usuario o Correo" 
-                    name="username" 
-                    id="username" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="passwordicon" />
-                  <input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Contraseña" 
-                    name="password" 
-                    id="password" 
-                    pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
-                    title="Debe contener al menos 6 caracteres, una mayúscula y un número"
-                    onFocus={() => setShowPasswordHint(true)}
-                    onBlur={() => setShowPasswordHint(false)}
-                  />
-                  <div className="password-toggle" onClick={togglePasswordVisibility}>
-                    {showPassword ? eyeClosed : eyeOpen}
-                  </div>
-                  {showPasswordHint && (
-                    <div className="password-tooltip">
-                      Mínimo 6 caracteres, una mayúscula y un número
+          {action === "Iniciar Sesión" ? (
+            <>
+              <div className="register-form-container">
+                <div className="register-form-row">
+                  <div className="register-form-column" style={{ maxWidth: "500px", margin: "0 auto" }}>
+                    <div className="input">
+                      <img src="" alt="" className="usericon" />
+                      <input 
+                        type="text" 
+                        placeholder="Usuario o Correo" 
+                        name="username" 
+                        id="username" 
+                      />
                     </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="text" 
-                    placeholder="Usuario" 
-                    name="username" 
-                    id="username" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="text" 
-                    placeholder="Nombre(s)" 
-                    name="nombre" 
-                    id="nombre" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="text" 
-                    placeholder="Apellido Paterno" 
-                    name="apellidoPaterno" 
-                    id="apellidoPaterno" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="text" 
-                    placeholder="Apellido Materno" 
-                    name="apellidoMaterno" 
-                    id="apellidoMaterno" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="email" 
-                    placeholder="Correo" 
-                    name="email" 
-                    id="email" 
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="usericon" />
-                  <input 
-                    type="date" 
-                    name="fechaNacimiento" 
-                    id="fechaNacimiento"
-                  />
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="passwordicon" />
-                  <input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Contraseña" 
-                    name="password" 
-                    id="password" 
-                    pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
-                    title="Debe contener al menos 6 caracteres, una mayúscula y un número"
-                    onFocus={() => setShowPasswordHint(true)}
-                    onBlur={() => setShowPasswordHint(false)}
-                  />
-                  <div className="password-toggle" onClick={togglePasswordVisibility}>
-                    {showPassword ? eyeClosed : eyeOpen}
-                  </div>
-                  {showPasswordHint && (
-                    <div className="password-tooltip">
-                      Mínimo 6 caracteres, una mayúscula y un número
+                    <div className="input">
+                      <img src="" alt="" className="passwordicon" />
+                      <input 
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Contraseña" 
+                        name="password" 
+                        id="password" 
+                        pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
+                        title="Debe contener al menos 6 caracteres, una mayúscula y un número"
+                        onFocus={() => setShowPasswordHint(true)}
+                        onBlur={() => setShowPasswordHint(false)}
+                      />
+                      <div className="password-toggle" onClick={togglePasswordVisibility}>
+                        {showPassword ? eyeClosed : eyeOpen}
+                      </div>
+                      {showPasswordHint && (
+                        <div className="password-tooltip">
+                          Mínimo 6 caracteres, una mayúscula y un número
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="input">
-                  <img src="" alt="" className="passwordicon" />
-                  <input 
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirmar Contraseña" 
-                    name="confirmPassword" 
-                    id="confirmPassword" 
-                    pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
-                    title="Debe contener al menos 6 caracteres, una mayúscula y un número"
-                    onFocus={() => setShowConfirmPasswordHint(true)}
-                    onBlur={() => setShowConfirmPasswordHint(false)}
-                  />
-                  <div className="password-toggle" onClick={toggleConfirmPasswordVisibility}>
-                    {showConfirmPassword ? eyeClosed : eyeOpen}
-                  </div>
-                  {showConfirmPasswordHint && (
-                    <div className="password-tooltip">
-                      Mínimo 6 caracteres, una mayúscula y un número
+                    <div className="forgot-password" style={{ textAlign: "right", width: "100%", marginTop: "10px" }}>
+                      ¿Olvidaste tu contraseña?{" "}
+                      <span onClick={() => setIsResettingPassword(true)}>
+                        ¡Click Aquí!
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
-
-          {action === "Iniciar Sesión" && (
-            <div className="forgot-password">
-              ¿Olvidaste tu contraseña?{" "}
-              <span onClick={() => setIsResettingPassword(true)}>
-                ¡Click Aquí!
-              </span>
+              </div>
+            </>
+          ) : (
+            <div className="register-form-container">
+              <div className="register-form-row">
+                <div className="register-form-column">
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="text" 
+                      placeholder="Usuario" 
+                      name="username" 
+                      id="username" 
+                    />
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="text" 
+                      placeholder="Nombre(s)" 
+                      name="nombre" 
+                      id="nombre" 
+                    />
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="text" 
+                      placeholder="Apellido Paterno" 
+                      name="apellidoPaterno" 
+                      id="apellidoPaterno" 
+                    />
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="email" 
+                      placeholder="Correo" 
+                      name="email" 
+                      id="email" 
+                    />
+                  </div>
+                </div>
+                <div className="register-form-column">
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="text" 
+                      placeholder="Apellido Materno" 
+                      name="apellidoMaterno" 
+                      id="apellidoMaterno" 
+                    />
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="date" 
+                      name="fechaNacimiento" 
+                      id="fechaNacimiento"
+                    />
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="passwordicon" />
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Contraseña" 
+                      name="password" 
+                      id="password" 
+                      pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
+                      title="Debe contener al menos 6 caracteres, una mayúscula y un número"
+                      onFocus={() => setShowPasswordHint(true)}
+                      onBlur={() => setShowPasswordHint(false)}
+                    />
+                    <div className="password-toggle" onClick={togglePasswordVisibility}>
+                      {showPassword ? eyeClosed : eyeOpen}
+                    </div>
+                    {showPasswordHint && (
+                      <div className="password-tooltip">
+                        Mínimo 6 caracteres, una mayúscula y un número
+                      </div>
+                    )}
+                  </div>
+                  <div className="input">
+                    <img src="" alt="" className="passwordicon" />
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirmar Contraseña" 
+                      name="confirmPassword" 
+                      id="confirmPassword" 
+                      pattern="(?=.*[A-Z])(?=.*[0-9]).{6,}"
+                      title="Debe contener al menos 6 caracteres, una mayúscula y un número"
+                      onFocus={() => setShowConfirmPasswordHint(true)}
+                      onBlur={() => setShowConfirmPasswordHint(false)}
+                    />
+                    <div className="password-toggle" onClick={toggleConfirmPasswordVisibility}>
+                      {showConfirmPassword ? eyeClosed : eyeOpen}
+                    </div>
+                    {showConfirmPasswordHint && (
+                      <div className="password-tooltip">
+                        Mínimo 6 caracteres, una mayúscula y un número
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

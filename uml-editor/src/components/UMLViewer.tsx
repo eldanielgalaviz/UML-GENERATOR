@@ -262,8 +262,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
                   onClick={() => setSelectedDiagram(diagram)}
                   className={`w-full text-left p-2 rounded ${
                     selectedDiagram === diagram
-                      ? "bg-blue-100"
-                      : "hover:bg-gray-100"
+                      ? "bg-[#27282e]"
+                      : "hover:bg-[#27282e]"
                   }`}
                 >
                   {diagram.title}
@@ -276,7 +276,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
           <div className="col-span-9">
             {selectedDiagram && (
               <div className="border rounded-lg p-4 bg-white">
-                <h4 className="font-bold mb-2">{selectedDiagram.title}</h4>
+                <h4 className="font-bold text-black mb-2">{selectedDiagram.title}</h4>
                 <MermaidDiagram code={selectedDiagram.code} />
               </div>
             )}

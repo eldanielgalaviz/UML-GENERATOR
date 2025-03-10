@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import "./LoginStyle.css"; // Asegúrate de usar el nuevo CSS
+import "./LoginStyle.css"; 
 
 interface FormInput extends HTMLInputElement {
   id: string;
@@ -272,21 +272,21 @@ const LoginAccess = () => {
                   <div className="input">
                     <img src="" alt="" className="usericon" />
                     <input 
-                      type="email" 
-                      placeholder="Correo" 
-                      name="email" 
-                      id="email" 
-                    />
-                  </div>
-                </div>
-                <div className="register-form-column">
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
                       type="text" 
                       placeholder="Apellido Materno" 
                       name="apellidoMaterno" 
                       id="apellidoMaterno" 
+                    />
+                  </div>
+                </div>
+                <div className="register-form-column">
+                <div className="input">
+                    <img src="" alt="" className="usericon" />
+                    <input 
+                      type="email" 
+                      placeholder="Correo" 
+                      name="email" 
+                      id="email" 
                     />
                   </div>
                   <div className="input">

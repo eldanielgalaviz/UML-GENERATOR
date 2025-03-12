@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import UMLViewer from './components/UMLViewer';
 import CodeViewer from './components/CodeViewer';
-import ExportarCodigo from './components/ExportarCodigo';
+// Si el archivo se llama DescargarCodigo.tsx
+import ExportarCodigo from "./components/ExportarCodigo";
 
 interface AnalysisResponse {
   requirements: any[];
@@ -68,7 +69,7 @@ function App() {
           )}
         </div>
         {activeTab === 'code' && analysisResponse?.generatedCode && (
-  <ExportarCodigo />
+  <DescargarCodigo />
 )}
       </main>
     </div>

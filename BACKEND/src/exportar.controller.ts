@@ -1,64 +1,45 @@
-// src/gemini/exportar.controller.ts
-import { Controller, Get, Res, Logger, Inject } from '@nestjs/common';
+import { Controller, Get, Res, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as archiver from 'archiver';
-import { GeneratedCode } from './interfaces/code-generation.interface';
-
-/**
- * Este servicio maneja el almacenamiento del último código generado
- */
-export class AlmacenamientoCodigo {
-  private codigoGenerado: GeneratedCode | null = null;
-
-  almacenarCodigo(codigo: GeneratedCode): void {
-    this.codigoGenerado = codigo;
-  }
-
-  obtenerUltimoCodigo(): GeneratedCode | null {
-    return this.codigoGenerado;
-  }
-}
+import { CodeStorageService } from './code-storage.service';
 
 @Controller('api/exportar')
 export class ExportarController {
   private readonly logger = new Logger(ExportarController.name);
 
-  constructor(private almacenamientoCodigo: AlmacenamientoCodigo) {}
+  constructor(private codeStorageService: CodeStorageService) {}
 
   @Get('codigo')
   async exportarCodigo(@Res() res: Response): Promise<void> {
     // Verificar si hay código generado
-    const codigoGenerado = this.almacenamientoCodigo.obtenerUltimoCodigo();
+    const codigoGenerado = this.codeStorageService.obtenerUltimoCodigoGenerado();
     if (!codigoGenerado) {
-      return res.status(404).json({ mensaje: 'No hay código generado para exportar' });
+      res.status(404).json({ mensaje: 'No hay código generado para exportar' });
+      return; // Añade return para evitar el error TS2322
     }
 
     // Crear directorios temporales
-    const dirTemporal = path.join(process.cwd(), 'temp-export');
-    const dirBackend = path.join(dirTemporal, 'proyecto-generado-backend');
-    const dirFrontend = path.join(dirTemporal, 'proyecto-generado-frontend');
+    const dirTemp = path.join(process.cwd(), 'temp-export');
+    const dirBackend = path.join(dirTemp, 'proyecto-generado-backend');
+    const dirFrontend = path.join(dirTemp, 'proyecto-generado-frontend');
     
     // Crear directorios temporales
-    if (fs.existsSync(dirTemporal)) {
-      // Limpiar directorio si existe
-      this.limpiarDirectorio(dirTemporal);
-    }
-    fs.mkdirSync(dirTemporal, { recursive: true });
-    fs.mkdirSync(dirBackend, { recursive: true });
-    fs.mkdirSync(dirFrontend, { recursive: true });
+    if (!fs.existsSync(dirTemp)) fs.mkdirSync(dirTemp, { recursive: true });
+    if (!fs.existsSync(dirBackend)) fs.mkdirSync(dirBackend, { recursive: true });
+    if (!fs.existsSync(dirFrontend)) fs.mkdirSync(dirFrontend, { recursive: true });
     
     try {
-      // Función para asegurar que el directorio exista
+      // Función para asegurar que un directorio existe
       const asegurarDirectorioExiste = (rutaArchivo: string) => {
-        const directorio = path.dirname(rutaArchivo);
-        if (!fs.existsSync(directorio)) {
-          fs.mkdirSync(directorio, { recursive: true });
+        const dirname = path.dirname(rutaArchivo);
+        if (!fs.existsSync(dirname)) {
+          fs.mkdirSync(dirname, { recursive: true });
         }
       };
       
-      // Crear archivos del backend
+      // Escribir archivos del backend
       if (codigoGenerado.backend) {
         // Escribir archivos comunes
         if (codigoGenerado.backend.commonFiles) {
@@ -81,23 +62,31 @@ export class ExportarController {
         }
         
         // Crear script de configuración
-        let scriptBackend = '#!/bin/bash\n\n';
-        scriptBackend += '# Script de configuración para backend NestJS\n';
-        scriptBackend += '# Generado por la herramienta UML-to-Code\n\n';
+        let scriptConfiguracionBackend = '#!/bin/bash\n\n';
+        scriptConfiguracionBackend += '# Script de configuración para el backend NestJS\n';
+        scriptConfiguracionBackend += '# Generado por la herramienta UML-to-Code\n\n';
         
         if (codigoGenerado.backend.cliCommands && codigoGenerado.backend.cliCommands.length > 0) {
-          scriptBackend += '# Comandos de configuración del proyecto\n';
+          scriptConfiguracionBackend += '# Comandos de configuración del proyecto\n';
           for (const cmd of codigoGenerado.backend.cliCommands) {
-            scriptBackend += `${cmd}\n`;
+            scriptConfiguracionBackend += `${cmd}\n`;
           }
-          scriptBackend += '\n';
+          scriptConfiguracionBackend += '\n';
+        } else {
+          // Si no hay comandos CLI, agregar al menos la instalación de dependencias
+          scriptConfiguracionBackend += '# Comandos de configuración del proyecto\n';
+          scriptConfiguracionBackend += 'npm install\n\n';
         }
         
-        const rutaScriptBackend = path.join(dirBackend, 'configurar.sh');
-        fs.writeFileSync(rutaScriptBackend, scriptBackend);
+        // Añadir comandos para iniciar el backend
+        scriptConfiguracionBackend += '# Iniciar el backend\n';
+        scriptConfiguracionBackend += 'npm run start:dev\n';
+        
+        const rutaScript = path.join(dirBackend, 'configurar.sh');
+        fs.writeFileSync(rutaScript, scriptConfiguracionBackend);
       }
       
-      // Crear archivos del frontend
+      // Escribir archivos del frontend
       if (codigoGenerado.frontend) {
         // Escribir archivos comunes
         if (codigoGenerado.frontend.commonFiles) {
@@ -120,46 +109,54 @@ export class ExportarController {
         }
         
         // Crear script de configuración
-        let scriptFrontend = '#!/bin/bash\n\n';
-        scriptFrontend += '# Script de configuración para Angular frontend\n';
-        scriptFrontend += '# Generado por la herramienta UML-to-Code\n\n';
+        let scriptConfiguracionFrontend = '#!/bin/bash\n\n';
+        scriptConfiguracionFrontend += '# Script de configuración para el frontend Angular\n';
+        scriptConfiguracionFrontend += '# Generado por la herramienta UML-to-Code\n\n';
         
         if (codigoGenerado.frontend.cliCommands && codigoGenerado.frontend.cliCommands.length > 0) {
-          scriptFrontend += '# Comandos de configuración del proyecto\n';
+          scriptConfiguracionFrontend += '# Comandos de configuración del proyecto\n';
           for (const cmd of codigoGenerado.frontend.cliCommands) {
-            scriptFrontend += `${cmd}\n`;
+            scriptConfiguracionFrontend += `${cmd}\n`;
           }
-          scriptFrontend += '\n';
+          scriptConfiguracionFrontend += '\n';
+        } else {
+          // Si no hay comandos CLI, agregar al menos la instalación de dependencias
+          scriptConfiguracionFrontend += '# Comandos de configuración del proyecto\n';
+          scriptConfiguracionFrontend += 'npm install\n\n';
         }
         
-        const rutaScriptFrontend = path.join(dirFrontend, 'configurar.sh');
-        fs.writeFileSync(rutaScriptFrontend, scriptFrontend);
+        // Añadir comandos para iniciar el frontend
+        scriptConfiguracionFrontend += '# Iniciar el frontend\n';
+        scriptConfiguracionFrontend += 'ng serve\n';
+        
+        const rutaScript = path.join(dirFrontend, 'configurar.sh');
+        fs.writeFileSync(rutaScript, scriptConfiguracionFrontend);
       }
       
       // Crear README principal
-      const rutaReadme = path.join(dirTemporal, 'README.md');
-      let contenidoReadme = '# Proyecto Generado desde Diagramas UML\n\n';
+      const rutaReadme = path.join(dirTemp, 'README.md');
+      let contenidoReadme = '# Proyecto Generado UML-to-Code\n\n';
       contenidoReadme += 'Este proyecto fue generado automáticamente a partir de diagramas UML.\n\n';
       
       contenidoReadme += '## Estructura del Proyecto\n\n';
-      contenidoReadme += '- `proyecto-generado-backend/`: Proyecto backend en NestJS\n';
-      contenidoReadme += '- `proyecto-generado-frontend/`: Proyecto frontend en Angular\n\n';
+      contenidoReadme += '- `proyecto-generado-backend/`: Proyecto backend NestJS\n';
+      contenidoReadme += '- `proyecto-generado-frontend/`: Proyecto frontend Angular\n\n';
       
       contenidoReadme += '## Instrucciones de Configuración\n\n';
       contenidoReadme += '### Backend (NestJS)\n\n';
       contenidoReadme += '1. Navega al directorio del backend: `cd proyecto-generado-backend`\n';
-      contenidoReadme += '2. Haz ejecutable el script de configuración: `chmod +x configurar.sh`\n';
+      contenidoReadme += '2. Haz el script de configuración ejecutable: `chmod +x configurar.sh`\n';
       contenidoReadme += '3. Ejecuta el script de configuración: `./configurar.sh`\n\n';
       
       contenidoReadme += '### Frontend (Angular)\n\n';
       contenidoReadme += '1. Navega al directorio del frontend: `cd proyecto-generado-frontend`\n';
-      contenidoReadme += '2. Haz ejecutable el script de configuración: `chmod +x configurar.sh`\n';
+      contenidoReadme += '2. Haz el script de configuración ejecutable: `chmod +x configurar.sh`\n';
       contenidoReadme += '3. Ejecuta el script de configuración: `./configurar.sh`\n\n';
       
       fs.writeFileSync(rutaReadme, contenidoReadme);
       
-      // Crear archivo ZIP
-      const archivador = archiver('zip', {
+      // Crear un archivo ZIP
+      const archivo = archiver('zip', {
         zlib: { level: 9 } // Máxima compresión
       });
       
@@ -167,44 +164,44 @@ export class ExportarController {
       const output = fs.createWriteStream(rutaZip);
       
       output.on('close', () => {
-        this.logger.log(`Archivo ZIP creado: ${archivador.pointer()} bytes`);
+        this.logger.log(`Archivo creado: ${archivo.pointer()} bytes`);
         
         // Enviar el archivo
         res.download(rutaZip, 'proyecto-generado.zip', (err) => {
           if (err) {
-            this.logger.error(`Error al enviar el ZIP: ${err.message}`);
+            this.logger.error(`Error enviando zip: ${err.message}`);
           }
           
-          // Limpiar
+          // Limpieza
           try {
             fs.unlinkSync(rutaZip);
-            this.limpiarDirectorio(dirTemporal);
+            this.limpiarDirTemp(dirTemp);
           } catch (errorLimpieza) {
             this.logger.error(`Error de limpieza: ${errorLimpieza.message}`);
           }
         });
       });
       
-      archivador.on('error', (err) => {
-        this.logger.error(`Error en el archivador: ${err.message}`);
-        res.status(500).send({ error: 'Error al crear el archivo ZIP' });
-        this.limpiarDirectorio(dirTemporal);
+      archivo.on('error', (err) => {
+        this.logger.error(`Error de archivo: ${err.message}`);
+        res.status(500).send({ error: 'Error al crear el archivo' });
+        this.limpiarDirTemp(dirTemp);
       });
       
-      archivador.pipe(output);
-      archivador.directory(dirTemporal, false);
-      archivador.finalize();
+      archivo.pipe(output);
+      archivo.directory(dirTemp, false);
+      archivo.finalize();
       
     } catch (error) {
-      this.logger.error(`Error en la exportación: ${error.message}`);
-      res.status(500).send({ error: 'Error al exportar el código' });
-      this.limpiarDirectorio(dirTemporal);
+      this.logger.error(`Error de exportación: ${error.message}`);
+      res.status(500).send({ error: 'Error al exportar código' });
+      this.limpiarDirTemp(dirTemp);
     }
   }
   
-  private limpiarDirectorio(dirTemporal: string): void {
+  private limpiarDirTemp(dirTemp: string): void {
     try {
-      if (fs.existsSync(dirTemporal)) {
+      if (fs.existsSync(dirTemp)) {
         const eliminarDirectorioRecursivo = (rutaDirectorio: string) => {
           if (fs.existsSync(rutaDirectorio)) {
             fs.readdirSync(rutaDirectorio).forEach((archivo) => {
@@ -219,10 +216,10 @@ export class ExportarController {
           }
         };
         
-        eliminarDirectorioRecursivo(dirTemporal);
+        eliminarDirectorioRecursivo(dirTemp);
       }
     } catch (error) {
-      this.logger.error(`Error en la limpieza: ${error.message}`);
+      this.logger.error(`Error al limpiar: ${error.message}`);
     }
   }
 }

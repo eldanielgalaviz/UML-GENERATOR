@@ -459,9 +459,6 @@ IMPORTANTE:
 
 
 
-  // Nuevo método para generar código a partir de diagramas y requisitos
-// src/gemini/gemini.service.ts (método generateCode actualizado)
-
 async generateCode(
   diagrams: MermaidDiagram[],
   requirements: IEEE830Requirement[]
@@ -794,7 +791,7 @@ private buildFrontendBasePrompt(
   
   Comandos CLI a incluir:
   - Comandos para instalar dependencias
-  - Comandos para agregar Angular Material
+  - Comandos para agregar Angular 18
   - Cualquier otro comando necesario para configurar el proyecto
 
   ⚠️ VERIFICA QUE TU JSON SEA 100% VÁLIDO Y TENGA ESCAPE CORRECTO ANTES DE RESPONDER ⚠️
@@ -810,7 +807,7 @@ private buildFrontendModulePrompt(
   requirements: IEEE830Requirement[]
 ): string {
   return `
-  GENERA UN JSON con la implementación del módulo "${moduleName}" para un frontend Angular.
+  GENERA UN JSON con la implementación del módulo "${moduleName}" para un frontend Angular 18.
   
   ⚠️ ALERTA DE FORMATO JSON ⚠️
   

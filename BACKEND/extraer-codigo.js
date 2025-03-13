@@ -54,39 +54,39 @@ function extraerCodigo(codigoGenerado) {
       }
     }
 
-    // Crear script de configuración para backend
-    let scriptBackend = '#!/bin/bash\n\n';
-    scriptBackend += '# Script de configuración para backend NestJS\n';
-    scriptBackend += '# Generado por la herramienta UML-to-Code\n\n';
+    // Crear script de configuración para backend (Windows - .bat)
+    let scriptBackend = '@echo off\r\n\r\n';
+    scriptBackend += 'REM Script de configuración para backend NestJS\r\n';
+    scriptBackend += 'REM Generado por la herramienta UML-to-Code\r\n\r\n';
     
     if (codigoGenerado.backend.cliCommands && codigoGenerado.backend.cliCommands.length > 0) {
-      scriptBackend += '# Comandos de configuración del proyecto\n';
+      scriptBackend += 'REM Comandos de configuración del proyecto\r\n';
       for (const cmd of codigoGenerado.backend.cliCommands) {
-        scriptBackend += `${cmd}\n`;
+        scriptBackend += `${cmd}\r\n`;
       }
-      scriptBackend += '\n';
+      scriptBackend += '\r\n';
     }
     
     // Agregar comandos específicos de módulo
     if (codigoGenerado.backend.modules) {
       for (const modulo of codigoGenerado.backend.modules) {
         if (modulo.cliCommands && modulo.cliCommands.length > 0) {
-          scriptBackend += `# Comandos para el módulo ${modulo.name}\n`;
+          scriptBackend += `REM Comandos para el módulo ${modulo.name}\r\n`;
           for (const cmd of modulo.cliCommands) {
-            scriptBackend += `${cmd}\n`;
+            scriptBackend += `${cmd}\r\n`;
           }
-          scriptBackend += '\n';
+          scriptBackend += '\r\n';
         }
       }
     }
     
     // Agregar comandos para iniciar el backend
-    scriptBackend += '# Iniciar el backend\n';
-    scriptBackend += 'npm run start:dev\n';
+    scriptBackend += 'REM Iniciar el backend\r\n';
+    scriptBackend += 'npm run start:dev\r\n';
     
-    const rutaScript = path.join(dirBackend, 'configurar.sh');
+    const rutaScript = path.join(dirBackend, 'configurar.bat');
     fs.writeFileSync(rutaScript, scriptBackend);
-    console.log(`Script de configuración backend creado: configurar.sh`);
+    console.log(`Script de configuración backend creado: configurar.bat`);
     
     // Crear un package.json básico si no existe
     const rutaPackageJson = path.join(dirBackend, 'package.json');
@@ -106,16 +106,24 @@ function extraerCodigo(codigoGenerado) {
           "@nestjs/core": "^10.0.0",
           "@nestjs/platform-express": "^10.0.0",
           "@nestjs/typeorm": "^10.0.0",
+          "@nestjs/jwt": "^10.1.0",
+          "@nestjs/passport": "^10.0.0",
+          "passport": "^0.6.0",
+          "passport-jwt": "^4.0.1",
+          "bcrypt": "^5.1.0",
           "class-transformer": "^0.5.1",
           "class-validator": "^0.14.0",
           "reflect-metadata": "^0.1.13",
           "rxjs": "^7.8.1",
-          "typeorm": "^0.3.17"
+          "typeorm": "^0.3.17",
+          "pg": "^8.11.0"
         },
         devDependencies: {
           "@nestjs/cli": "^10.0.0",
           "@types/express": "^4.17.17",
           "@types/node": "^20.3.1",
+          "@types/passport-jwt": "^3.0.8",
+          "@types/bcrypt": "^5.0.0",
           "typescript": "^5.1.3"
         }
       };
@@ -150,39 +158,39 @@ function extraerCodigo(codigoGenerado) {
       }
     }
 
-    // Crear script de configuración para frontend
-    let scriptFrontend = '#!/bin/bash\n\n';
-    scriptFrontend += '# Script de configuración para frontend Angular\n';
-    scriptFrontend += '# Generado por la herramienta UML-to-Code\n\n';
+    // Crear script de configuración para frontend (Windows - .bat)
+    let scriptFrontend = '@echo off\r\n\r\n';
+    scriptFrontend += 'REM Script de configuración para frontend Angular\r\n';
+    scriptFrontend += 'REM Generado por la herramienta UML-to-Code\r\n\r\n';
     
     if (codigoGenerado.frontend.cliCommands && codigoGenerado.frontend.cliCommands.length > 0) {
-      scriptFrontend += '# Comandos de configuración del proyecto\n';
+      scriptFrontend += 'REM Comandos de configuración del proyecto\r\n';
       for (const cmd of codigoGenerado.frontend.cliCommands) {
-        scriptFrontend += `${cmd}\n`;
+        scriptFrontend += `${cmd}\r\n`;
       }
-      scriptFrontend += '\n';
+      scriptFrontend += '\r\n';
     }
     
     // Agregar comandos específicos de módulo
     if (codigoGenerado.frontend.modules) {
       for (const modulo of codigoGenerado.frontend.modules) {
         if (modulo.cliCommands && modulo.cliCommands.length > 0) {
-          scriptFrontend += `# Comandos para el módulo ${modulo.name}\n`;
+          scriptFrontend += `REM Comandos para el módulo ${modulo.name}\r\n`;
           for (const cmd of modulo.cliCommands) {
-            scriptFrontend += `${cmd}\n`;
+            scriptFrontend += `${cmd}\r\n`;
           }
-          scriptFrontend += '\n';
+          scriptFrontend += '\r\n';
         }
       }
     }
     
     // Agregar comandos para iniciar el frontend
-    scriptFrontend += '# Iniciar el frontend\n';
-    scriptFrontend += 'ng serve\n';
+    scriptFrontend += 'REM Iniciar el frontend\r\n';
+    scriptFrontend += 'ng serve\r\n';
     
-    const rutaScript = path.join(dirFrontend, 'configurar.sh');
+    const rutaScript = path.join(dirFrontend, 'configurar.bat');
     fs.writeFileSync(rutaScript, scriptFrontend);
-    console.log(`Script de configuración frontend creado: configurar.sh`);
+    console.log(`Script de configuración frontend creado: configurar.bat`);
     
     // Crear un package.json básico si no existe
     const rutaPackageJson = path.join(dirFrontend, 'package.json');
@@ -230,7 +238,7 @@ function extraerCodigo(codigoGenerado) {
   // Crear un README.md principal con instrucciones
   const rutaReadme = path.join('.', 'README.md');
   let contenidoReadme = '# Proyecto Generado desde Diagramas UML\n\n';
-  contenidoReadme += 'Este proyecto fue generado automáticamente a partir de diagramas UML utilizando la herramienta UML-to-Code.\n\n';
+  contenidoReadme += 'Este proyecto fue generado automáticamente a partir de diagramas UML.\n\n';
   
   contenidoReadme += '## Estructura del Proyecto\n\n';
   contenidoReadme += '- `proyecto-generado-backend/`: Proyecto backend en NestJS\n';
@@ -239,18 +247,16 @@ function extraerCodigo(codigoGenerado) {
   contenidoReadme += '## Instrucciones de Configuración\n\n';
   contenidoReadme += '### Backend (NestJS)\n\n';
   contenidoReadme += '1. Navega al directorio del backend: `cd proyecto-generado-backend`\n';
-  contenidoReadme += '2. Haz ejecutable el script de configuración: `chmod +x configurar.sh`\n';
-  contenidoReadme += '3. Ejecuta el script de configuración: `./configurar.sh`\n\n';
+  contenidoReadme += '2. Ejecuta el script de configuración: `configurar.bat`\n\n';
   
   contenidoReadme += '### Frontend (Angular)\n\n';
   contenidoReadme += '1. Navega al directorio del frontend: `cd proyecto-generado-frontend`\n';
-  contenidoReadme += '2. Haz ejecutable el script de configuración: `chmod +x configurar.sh`\n';
-  contenidoReadme += '3. Ejecuta el script de configuración: `./configurar.sh`\n\n';
+  contenidoReadme += '2. Ejecuta el script de configuración: `configurar.bat`\n\n';
   
   contenidoReadme += '## Notas\n\n';
   contenidoReadme += '- El backend se ejecutará en `http://localhost:3000` por defecto\n';
   contenidoReadme += '- El frontend se ejecutará en `http://localhost:4200` por defecto\n';
-  contenidoReadme += '- Es posible que necesites ajustar la configuración CORS en el backend si encuentras problemas\n';
+  contenidoReadme += '- Es posible que necesites configurar la base de datos PostgreSQL antes de ejecutar el backend\n';
   
   fs.writeFileSync(rutaReadme, contenidoReadme);
   console.log(`README.md principal creado con instrucciones de configuración`);

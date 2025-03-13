@@ -677,12 +677,18 @@ private async generateFrontend(
     const componentDiagram = diagrams.find(d => d.type === 'componentDiagram');
     const classDiagram = diagrams.find(d => d.type === 'classDiagram');
     
-    if (!componentDiagram || !classDiagram) {
-      throw new Error('Se requieren diagramas de componentes y clases para generar el frontend');
+    if (!componentDiagram) {
+      this.logger.warn('No se encontró diagrama de componentes. Usando diagrama predeterminado.');
+    }
+    
+    if (!classDiagram) {
+      this.logger.warn('No se encontró diagrama de clases. Usando diagrama predeterminado.');
     }
 
-    // Lista de módulos a generar
-    const moduleNames = ['AppModule', 'CoreModule', 'SharedModule', 'AuthModule', 'ProjectsModule', 'TasksModule'];
+    // Extraer módulos a generar basados en los requerimientos
+    const moduleNames = this.extractFrontendModuleNamesFromRequirements(requirements);
+    this.logger.log(`Módulos a generar para el frontend: ${moduleNames.join(', ')}`);
+
     const result: AngularFrontend = {
       modules: [],
       commonFiles: [],
@@ -691,7 +697,12 @@ private async generateFrontend(
 
     // Generar estructura básica y archivos comunes
     this.logger.log('Generando estructura básica de frontend y archivos comunes...');
-    const basePrompt = this.buildFrontendBasePrompt(componentDiagram, classDiagram, requirements);
+    const basePrompt = this.buildFrontendBasePrompt(
+      componentDiagram || this.generateDefaultComponentDiagram(),
+      classDiagram || this.generateDefaultClassDiagram(),
+      requirements
+    );
+    
     const baseResponse = await this.retryOperation(async () => {
       const result = await this.model.generateContent([{ text: basePrompt }]);
       return result.response.text();
@@ -700,16 +711,23 @@ private async generateFrontend(
     const baseStructure = this.extractJsonFromResponse(baseResponse);
     if (baseStructure && baseStructure.commonFiles) {
       result.commonFiles = baseStructure.commonFiles;
+      this.logger.log(`Generados ${baseStructure.commonFiles.length} archivos comunes para el frontend`);
     }
     if (baseStructure && baseStructure.cliCommands) {
       result.cliCommands = baseStructure.cliCommands;
+      this.logger.log(`Generados ${baseStructure.cliCommands.length} comandos CLI para el frontend`);
     }
 
     // Generar cada módulo individualmente
     for (const moduleName of moduleNames) {
       try {
         this.logger.log(`Generando módulo frontend: ${moduleName}...`);
-        const modulePrompt = this.buildFrontendModulePrompt(moduleName, componentDiagram, classDiagram, requirements);
+        const modulePrompt = this.buildFrontendModulePrompt(
+          moduleName, 
+          componentDiagram || this.generateDefaultComponentDiagram(), 
+          classDiagram || this.generateDefaultClassDiagram(), 
+          requirements
+        );
         
         const moduleResponse = await this.retryOperation(async () => {
           const result = await this.model.generateContent([{ text: modulePrompt }]);
@@ -719,10 +737,32 @@ private async generateFrontend(
         const moduleStructure = this.extractJsonFromResponse(moduleResponse);
         if (moduleStructure && moduleStructure.module) {
           result.modules.push(moduleStructure.module);
+          this.logger.log(`Módulo frontend ${moduleName} generado correctamente con ${moduleStructure.module.files?.length || 0} archivos`);
+        } else {
+          throw new Error(`No se pudo extraer la estructura del módulo ${moduleName}`);
         }
       } catch (error) {
-        this.logger.error(`Error generando módulo ${moduleName}:`, error);
-        // Continuar con el siguiente módulo en caso de error
+        this.logger.error(`Error generando módulo frontend ${moduleName}:`, error);
+        // Intentar una segunda vez con un prompt más sencillo
+        try {
+          this.logger.log(`Reintentando generación de módulo frontend ${moduleName} con prompt simplificado...`);
+          const simplePrompt = this.buildSimpleFrontendModulePrompt(moduleName, requirements);
+          
+          const simpleResponse = await this.retryOperation(async () => {
+            const result = await this.model.generateContent([{ text: simplePrompt }]);
+            return result.response.text();
+          });
+          
+          const moduleStructure = this.extractJsonFromResponse(simpleResponse);
+          if (moduleStructure && moduleStructure.module) {
+            result.modules.push(moduleStructure.module);
+            this.logger.log(`Módulo frontend ${moduleName} generado con prompt simplificado`);
+          } else {
+            this.logger.error(`No se pudo generar el módulo frontend ${moduleName}, incluso con prompt simplificado`);
+          }
+        } catch (retryError) {
+          this.logger.error(`Error en segundo intento para módulo frontend ${moduleName}:`, retryError);
+        }
       }
     }
 
@@ -730,12 +770,218 @@ private async generateFrontend(
       throw new Error('No se pudo generar ningún módulo para el frontend');
     }
 
+    // Verificar y validar la estructura del frontend
+    this.logger.log('Validando estructura del frontend generado...');
+    this.validateFrontendStructure(result);
+
     return result;
   } catch (error) {
     this.logger.error('Error generando frontend:', error);
     throw new Error(`Error generando frontend: ${error.message}`);
   }
 }
+
+private generateCommonFrontendFile(fileName: string): any {
+  // Implementación básica para archivos comunes faltantes
+  switch (fileName) {
+    case 'angular.json':
+      return {
+        path: 'angular.json',
+        content: `{\n  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",\n  "version": 1,\n  "newProjectRoot": "projects",\n  "projects": {\n    "frontend": {\n      "projectType": "application",\n      "schematics": {\n        "@schematics/angular:component": {\n          "style": "scss"\n        }\n      },\n      "root": "",\n      "sourceRoot": "src",\n      "prefix": "app",\n      "architect": {\n        "build": {\n          "builder": "@angular-devkit/build-angular:browser",\n          "options": {\n            "outputPath": "dist/frontend",\n            "index": "src/index.html",\n            "main": "src/main.ts",\n            "polyfills": ["zone.js"],\n            "tsConfig": "tsconfig.app.json",\n            "inlineStyleLanguage": "scss",\n            "assets": ["src/favicon.ico", "src/assets"],\n            "styles": [\n              "@angular/material/prebuilt-themes/indigo-pink.css",\n              "src/styles.scss"\n            ],\n            "scripts": []\n          },\n          "configurations": {\n            "production": {\n              "budgets": [\n                {\n                  "type": "initial",\n                  "maximumWarning": "500kb",\n                  "maximumError": "1mb"\n                },\n                {\n                  "type": "anyComponentStyle",\n                  "maximumWarning": "2kb",\n                  "maximumError": "4kb"\n                }\n              ],\n              "outputHashing": "all"\n            },\n            "development": {\n              "buildOptimizer": false,\n              "optimization": false,\n              "vendorChunk": true,\n              "extractLicenses": false,\n              "sourceMap": true,\n              "namedChunks": true\n            }\n          },\n          "defaultConfiguration": "production"\n        },\n        "serve": {\n          "builder": "@angular-devkit/build-angular:dev-server",\n          "configurations": {\n            "production": {\n              "browserTarget": "frontend:build:production"\n            },\n            "development": {\n              "browserTarget": "frontend:build:development"\n            }\n          },\n          "defaultConfiguration": "development"\n        },\n        "extract-i18n": {\n          "builder": "@angular-devkit/build-angular:extract-i18n",\n          "options": {\n            "browserTarget": "frontend:build"\n          }\n        },\n        "test": {\n          "builder": "@angular-devkit/build-angular:karma",\n          "options": {\n            "polyfills": ["zone.js", "zone.js/testing"],\n            "tsConfig": "tsconfig.spec.json",\n            "inlineStyleLanguage": "scss",\n            "assets": ["src/favicon.ico", "src/assets"],\n            "styles": [\n              "@angular/material/prebuilt-themes/indigo-pink.css",\n              "src/styles.scss"\n            ],\n            "scripts": []\n          }\n        }\n      }\n    }\n  },\n  "cli": {\n    "analytics": false\n  }\n}`,
+        type: 'json'
+      };
+    case 'tsconfig.json':
+      return {
+        path: 'tsconfig.json',
+        content: `{\n  "compileOnSave": false,\n  "compilerOptions": {\n    "baseUrl": "./",\n    "outDir": "./dist/out-tsc",\n    "forceConsistentCasingInFileNames": true,\n    "strict": true,\n    "noImplicitOverride": true,\n    "noPropertyAccessFromIndexSignature": true,\n    "noImplicitReturns": true,\n    "noFallthroughCasesInSwitch": true,\n    "sourceMap": true,\n    "declaration": false,\n    "downlevelIteration": true,\n    "experimentalDecorators": true,\n    "moduleResolution": "node",\n    "importHelpers": true,\n    "target": "es2022",\n    "module": "es2022",\n    "lib": ["es2022", "dom"]\n  },\n  "angularCompilerOptions": {\n    "enableI18nLegacyMessageIdFormat": false,\n    "strictInjectionParameters": true,\n    "strictInputAccessModifiers": true,\n    "strictTemplates": true\n  }\n}`,
+        type: 'json'
+      };
+    case 'package.json':
+      return {
+        path: 'package.json',
+        content: `{\n  "name": "frontend",\n  "version": "0.0.0",\n  "scripts": {\n    "ng": "ng",\n    "start": "ng serve",\n    "build": "ng build",\n    "watch": "ng build --watch --configuration development",\n    "test": "ng test"\n  },\n  "private": true,\n  "dependencies": {\n    "@angular/animations": "^18.0.0",\n    "@angular/cdk": "^18.0.0",\n    "@angular/common": "^18.0.0",\n    "@angular/compiler": "^18.0.0",\n    "@angular/core": "^18.0.0",\n    "@angular/forms": "^18.0.0",\n    "@angular/material": "^18.0.0",\n    "@angular/platform-browser": "^18.0.0",\n    "@angular/platform-browser-dynamic": "^18.0.0",\n    "@angular/router": "^18.0.0",\n    "rxjs": "~7.8.0",\n    "tslib": "^2.3.0",\n    "zone.js": "~0.14.0"\n  },\n  "devDependencies": {\n    "@angular-devkit/build-angular": "^18.0.0",\n    "@angular/cli": "^18.0.0",\n    "@angular/compiler-cli": "^18.0.0",\n    "@types/jasmine": "~5.1.0",\n    "jasmine-core": "~5.1.0",\n    "karma": "~6.4.0",\n    "karma-chrome-launcher": "~3.2.0",\n    "karma-coverage": "~2.2.0",\n    "karma-jasmine": "~5.1.0",\n    "karma-jasmine-html-reporter": "~2.1.0",\n    "typescript": "~5.3.0"\n  }\n}`,
+        type: 'json'
+      };
+    case 'src/index.html':
+      return {
+        path: 'src/index.html',
+        content: `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <title>Frontend</title>\n  <base href="/">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <link rel="icon" type="image/x-icon" href="favicon.ico">\n  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">\n  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">\n</head>\n<body class="mat-typography">\n  <app-root></app-root>\n</body>\n</html>`,
+        type: 'html'
+      };
+    case 'src/styles.scss':
+      return {
+        path: 'src/styles.scss',
+        content: `/* You can add global styles to this file, and also import other style files */\n\nhtml, body { height: 100%; }\nbody { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }\n`,
+        type: 'style'
+      };
+    case 'src/environments/environment.ts':
+      return {
+        path: 'src/environments/environment.ts',
+        content: `export const environment = {\n  production: false,\n  apiUrl: 'http://localhost:3000/api'\n};\n`,
+        type: 'typescript'
+      };
+    case 'src/environments/environment.prod.ts':
+      return {
+        path: 'src/environments/environment.prod.ts',
+        content: `export const environment = {\n  production: true,\n  apiUrl: '/api'\n};\n`,
+        type: 'typescript'
+      };
+    default:
+      return null;
+  }
+}
+
+
+private validateFrontendStructure(frontend: AngularFrontend): void {
+  try {
+    this.logger.log('Validando estructura del frontend...');
+    
+    // Verificar archivos comunes esenciales
+    const essentialCommonFiles = [
+      'angular.json',
+      'tsconfig.json',
+      'package.json',
+      'src/index.html',
+      'src/styles.scss',
+      'src/environments/environment.ts'
+    ];
+    
+    const missingCommonFiles = essentialCommonFiles.filter(file => 
+      !frontend.commonFiles.some(f => f.path.endsWith(file) || f.path === file)
+    );
+    
+    if (missingCommonFiles.length > 0) {
+      this.logger.warn(`Faltan archivos comunes esenciales en el frontend: ${missingCommonFiles.join(', ')}`);
+      
+      // Generar los archivos faltantes
+      for (const missingFile of missingCommonFiles) {
+        this.logger.log(`Generando archivo común faltante: ${missingFile}`);
+        const generatedFile = this.generateCommonFrontendFile(missingFile);
+        if (generatedFile) {
+          frontend.commonFiles.push(generatedFile);
+        }
+      }
+    }
+    
+    // Verificar módulos esenciales
+    const essentialModules = ['AppModule', 'CoreModule', 'SharedModule'];
+    const existingModules = frontend.modules.map(m => m.name);
+    
+    const missingModules = essentialModules.filter(module => 
+      !existingModules.includes(module)
+    );
+    
+    if (missingModules.length > 0) {
+      this.logger.warn(`Faltan módulos esenciales en el frontend: ${missingModules.join(', ')}`);
+      
+      // Los módulos esenciales deberían generarse en generateFrontend,
+      // pero podríamos agregar lógica para generarlos aquí si es necesario
+    }
+    
+    // Verificar componentes importantes en cada módulo
+    if (frontend.modules.some(m => m.name === 'AppModule')) {
+      this.validateAppModule(frontend);
+    }
+    
+    if (frontend.modules.some(m => m.name === 'CoreModule')) {
+      this.validateCoreModule(frontend);
+    }
+    
+    if (frontend.modules.some(m => m.name === 'SharedModule')) {
+      this.validateSharedModule(frontend);
+    }
+    
+    this.logger.log('Validación de estructura del frontend completada');
+  } catch (error) {
+    this.logger.error(`Error validando estructura del frontend: ${error.message}`);
+  }
+}
+
+private validateAppModule(frontend: AngularFrontend): void {
+  const appModule = frontend.modules.find(m => m.name === 'AppModule');
+  if (!appModule) return;
+  
+  // Verificar archivos esenciales del AppModule
+  const essentialFiles = [
+    'app.module.ts',
+    'app-routing.module.ts',
+    'app.component.ts',
+    'app.component.html',
+    'app.component.scss'
+  ];
+  
+  const missingFiles = essentialFiles.filter(file => 
+    !appModule.files.some(f => f.path.endsWith(file))
+  );
+  
+  if (missingFiles.length > 0) {
+    this.logger.warn(`Faltan archivos esenciales en AppModule: ${missingFiles.join(', ')}`);
+    
+    // Generación de archivos básicos faltantes se implementaría aquí
+  }
+  
+  // Verificar importaciones en app.module.ts
+  const moduleFile = appModule.files.find(f => f.path.endsWith('app.module.ts'));
+  if (!moduleFile) return;
+  
+  // Verificar importaciones básicas
+  const essentialImports = [
+    'BrowserModule',
+    'AppRoutingModule',
+    'BrowserAnimationsModule',
+    'HttpClientModule'
+  ];
+  
+  const missingImports = essentialImports.filter(imp => 
+    !moduleFile.content.includes(imp)
+  );
+  
+  if (missingImports.length > 0) {
+    this.logger.warn(`Faltan importaciones esenciales en app.module.ts: ${missingImports.join(', ')}`);
+    
+    // Actualizar el contenido del app.module.ts se implementaría aquí
+  }
+}
+
+// Validar el CoreModule
+private validateCoreModule(frontend: AngularFrontend): void {
+  const coreModule = frontend.modules.find(m => m.name === 'CoreModule');
+  if (!coreModule) return;
+  
+  // Verificar carpetas importantes
+  const essentialFolders = [
+    'services',
+    'guards',
+    'interceptors',
+    'models'
+  ];
+  
+  for (const folder of essentialFolders) {
+    const hasFolder = coreModule.files.some(f => 
+      f.path.includes(`/core/${folder}/`) || f.path.includes(`/core/${folder}s/`)
+    );
+    
+    if (!hasFolder) {
+      this.logger.warn(`No se encontró la carpeta ${folder} en CoreModule`);
+    }
+  }
+  
+  // Verificar servicios esenciales
+  const essentialServices = [
+    'auth.service.ts'
+  ];
+  
+  const missingServices = essentialServices.filter(service => 
+    !coreModule.files.some(f => f.path.includes(service))
+  );
+  
+  if (missingServices.length > 0) {
+    this.logger.warn(`Faltan servicios esenciales en CoreModule: ${missingServices.join(', ')}`);
+    
+    // Generación de servicios faltantes se implementaría aquí
+  }
+}
+
 
 private buildFrontendBasePrompt(
   componentDiagram: MermaidDiagram,
@@ -1350,13 +1596,743 @@ private extractCodeEmergency(jsonStr: string): any {
 
 
 
-
-
-
-
-
-
-
-
-
+// Método para extraer nombres de módulos frontend a partir de los requerimientos
+private extractFrontendModuleNamesFromRequirements(requirements: IEEE830Requirement[]): string[] {
+  // Los módulos esenciales siempre deben estar presentes
+  const moduleNames = new Set<string>(['AppModule', 'CoreModule', 'SharedModule', 'AuthModule']);
+  
+  // Extraer entidades y conceptos clave de los requerimientos
+  const entities = new Set<string>();
+  const concepts = new Set<string>();
+  
+  // Analizamos cada requerimiento para encontrar posibles entidades o conceptos
+  for (const req of requirements) {
+    const description = req.description;
+    
+    // Análisis básico de texto para encontrar posibles entidades
+    // Buscamos sustantivos en mayúscula o después de verbos como "gestionar", "administrar", etc.
+    const words = description.split(/\s+/);
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i].trim().replace(/[.,;:!?()]/g, '');
+      
+      // Ignora palabras muy cortas
+      if (word.length <= 2) continue;
+      
+      // Detectar posibles entidades (palabras que empiezan con mayúscula no al inicio de frase)
+      if (i > 0 && /^[A-Z][a-z]+$/.test(word)) {
+        entities.add(word);
+      }
+      
+      // Detectar posibles conceptos después de verbos de gestión
+      const managementVerbs = ['gestionar', 'administrar', 'manejar', 'controlar', 'mantener', 'manage', 'control', 'handle'];
+      
+      if (managementVerbs.includes(words[i - 1]?.toLowerCase()) && word.length > 3) {
+        concepts.add(word);
+      }
+    }
+  }
+  
+  // Convertir entidades y conceptos a posibles nombres de módulos
+  for (const entity of entities) {
+    if (entity.endsWith('s')) {
+      // Ya está en plural
+      moduleNames.add(`${entity}Module`);
+    } else {
+      // Convertir a plural para el nombre del módulo
+      moduleNames.add(`${entity}sModule`);
+    }
+  }
+  
+  for (const concept of concepts) {
+    if (concept.endsWith('s')) {
+      // Ya está en plural
+      moduleNames.add(`${concept}Module`);
+    } else {
+      // Convertir a plural para el nombre del módulo
+      moduleNames.add(`${concept}sModule`);
+    }
+  }
+  
+  // Analizar patrones comunes en los requerimientos que puedan sugerir módulos específicos
+  const modulePatterns = [
+    // Autenticación y autorización
+    { pattern: /(autenticación|login|iniciar sesión|acceso|authentication|sign in)/i, module: 'AuthModule' },
+    { pattern: /(usuarios|users|perfiles|accounts|cuentas)/i, module: 'UsersModule' },
+    { pattern: /(permisos|roles|autorización|authorization|accesos)/i, module: 'RolesModule' },
+    
+    // Gestión de contenidos y datos
+    { pattern: /(dashboard|panel|metrics|métricas|statistics|estadísticas)/i, module: 'DashboardModule' },
+    { pattern: /(reportes|reports|informes)/i, module: 'ReportsModule' },
+    { pattern: /(notificaciones|notifications|alerts|alertas)/i, module: 'NotificationsModule' },
+    
+    // Comunicación
+    { pattern: /(mensajes|messages|chat|comunicación|communication)/i, module: 'MessagesModule' },
+    { pattern: /(comments|comentarios|feedback)/i, module: 'CommentsModule' },
+    
+    // Gestión de archivos y medios
+    { pattern: /(files|archivos|documentos|documents)/i, module: 'FilesModule' },
+    { pattern: /(media|multimedia|images|imágenes|videos)/i, module: 'MediaModule' },
+    
+    // Configuración
+    { pattern: /(settings|configuración|preferences|preferencias)/i, module: 'SettingsModule' },
+    { pattern: /(profiles|perfil|profiles)/i, module: 'ProfilesModule' },
+    
+    // Módulos de negocio genéricos
+    { pattern: /(products|productos|items|artículos)/i, module: 'ProductsModule' },
+    { pattern: /(categorías|categories|tags|etiquetas)/i, module: 'CategoriesModule' },
+    { pattern: /(orders|pedidos|órdenes)/i, module: 'OrdersModule' },
+    { pattern: /(proyectos|projects)/i, module: 'ProjectsModule' },
+    { pattern: /(tareas|tasks|actividades|activities)/i, module: 'TasksModule' },
+    { pattern: /(clientes|customers|clients)/i, module: 'CustomersModule' }
+  ];
+  
+  // Buscar patrones en todos los requerimientos
+  for (const req of requirements) {
+    for (const { pattern, module } of modulePatterns) {
+      if (pattern.test(req.description)) {
+        moduleNames.add(module);
+      }
+    }
+  }
+  
+  return Array.from(moduleNames);
 }
+
+// Generar un diagrama de componentes predeterminado
+private generateDefaultComponentDiagram(): MermaidDiagram {
+  return {
+    type: 'componentDiagram',
+    title: 'Diagrama de Componentes',
+    code: `graph TD
+    subgraph Frontend
+        UI[Interfaz Usuario]
+        Auth[Autenticación]
+        Data[Gestión Datos]
+    end
+    
+    subgraph Backend
+        API[API REST]
+        Srv[Servicios]
+        DB[(Base Datos)]
+    end
+    
+    UI --> Auth
+    UI --> Data
+    Auth --> API
+    Data --> API
+    API --> Srv
+    Srv --> DB`
+  };
+}
+
+// Generar un diagrama de clases predeterminado
+private generateDefaultClassDiagram(): MermaidDiagram {
+  return {
+    type: 'classDiagram',
+    title: 'Diagrama de Clases',
+    code: `classDiagram
+    class Entity {
+        +id: Number
+        +createdAt: Date
+        +updatedAt: Date
+        +create()
+        +update()
+        +delete()
+    }
+    
+    class User {
+        +username: String
+        +email: String
+        +password: String
+        +login()
+        +logout()
+    }
+    
+    class Profile {
+        +userId: Number
+        +displayName: String
+        +updateProfile()
+    }
+    
+    User "1" --> "1" Profile : has
+    Entity <|-- User : extends
+    Entity <|-- Profile : extends`
+  };
+}
+
+// Método para generar un prompt de módulo simplificado para frontend
+private buildSimpleFrontendModulePrompt(moduleName: string, requirements: IEEE830Requirement[]): string {
+  // Extraer nombre base del módulo (sin 'Module')
+  const baseModuleName = moduleName.replace('Module', '');
+  
+  // Buscar requerimientos relacionados con este módulo
+  const relatedRequirements = requirements.filter(req => {
+    const baseNames = [
+      baseModuleName.toLowerCase(),
+      this.singularize(baseModuleName).toLowerCase(),
+      this.pluralize(baseModuleName).toLowerCase()
+    ];
+    
+    return baseNames.some(name => req.description.toLowerCase().includes(name));
+  });
+  
+  // Detectar el tipo de módulo para personalizar el prompt
+  const isAppModule = moduleName === 'AppModule';
+  const isAuthModule = moduleName === 'AuthModule';
+  const isCoreModule = moduleName === 'CoreModule';
+  const isSharedModule = moduleName === 'SharedModule';
+  
+  // Estructura específica según el tipo de módulo
+  let specificStructure = '';
+  
+  if (isAppModule) {
+    specificStructure = `
+    Archivos a incluir:
+    - app.module.ts (con imports para BrowserModule, HttpClientModule, AppRoutingModule)
+    - app-routing.module.ts (con rutas principales)
+    - app.component.ts/html/scss (componente principal)`;
+  } else if (isAuthModule) {
+    specificStructure = `
+    Archivos a incluir:
+    - auth.module.ts
+    - auth-routing.module.ts
+    - login/login.component.ts/html/scss
+    - register/register.component.ts/html/scss
+    - auth.service.ts (servicio con métodos login, register, logout)`;
+  } else if (isCoreModule) {
+    specificStructure = `
+    Archivos a incluir:
+    - core.module.ts
+    - guards/auth.guard.ts
+    - interceptors/auth.interceptor.ts
+    - services/api.service.ts
+    - models/ (modelos necesarios)`;
+  } else if (isSharedModule) {
+    specificStructure = `
+    Archivos a incluir:
+    - shared.module.ts
+    - material.module.ts (con imports de Angular Material)
+    - components/header/header.component.ts/html/scss
+    - components/footer/footer.component.ts/html/scss
+    - components/loading/loading.component.ts/html/scss`;
+  } else {
+    // Para otros módulos, estructura genérica de feature module
+    const featureName = this.singularize(baseModuleName.toLowerCase());
+    specificStructure = `
+    Archivos a incluir:
+    - ${this.kebabCase(baseModuleName)}.module.ts
+    - ${this.kebabCase(baseModuleName)}-routing.module.ts
+    - components/ (componentes necesarios)
+    - pages/
+      - ${featureName}-list/${featureName}-list.component.ts/html/scss
+      - ${featureName}-detail/${featureName}-detail.component.ts/html/scss
+      - ${featureName}-form/${featureName}-form.component.ts/html/scss
+    - services/${this.kebabCase(baseModuleName)}.service.ts
+    - models/${this.kebabCase(featureName)}.model.ts`;
+  }
+  
+  return `
+  GENERA UN JSON con la implementación básica del módulo "${moduleName}" para un frontend Angular.
+  
+  ⚠️ ALERTA DE FORMATO JSON ⚠️
+  
+  Genera un JSON completamente válido sin errores de sintaxis. Es CRÍTICO para el funcionamiento del sistema.
+  
+  REGLAS DE FORMATO JSON (ESTRICTAS):
+  1. Usa SOLO comillas dobles para nombres de propiedades y valores string
+  2. Todos los strings deben tener escape correcto: usa \\" para comillas dobles dentro de strings
+  3. Usa \\n para saltos de línea dentro de strings
+  4. Usa \\\\ para representar backslash
+  5. Coloca comas entre elementos de array y propiedades de objeto, pero NO después del último elemento
+  6. Asegúrate de que todos los corchetes y llaves estén correctamente cerrados y balanceados
+  7. No uses abreviaciones como "..." o "etc" dentro del JSON
+
+  Estructura exacta del JSON:
+  
+  {
+    "module": {
+      "name": "${moduleName}",
+      "files": [
+        {
+          "path": "ruta/al/archivo",
+          "content": "contenido del archivo con escape correcto",
+          "type": "tipo de archivo"
+        }
+      ],
+      "cliCommands": []
+    }
+  }
+  
+  Requerimientos relacionados:
+  ${relatedRequirements.length > 0 
+    ? JSON.stringify(relatedRequirements, null, 2) 
+    : "No hay requerimientos específicos para este módulo"}
+  
+  IMPORTANTE:
+  - Genera código básico para el módulo Angular "${moduleName}"
+  - ${specificStructure}
+  - Usa código TypeScript correcto y completo
+  - Incluye imports necesarios
+  - Sigue las convenciones de nombres de Angular
+  - Implementa componentes básicos pero funcionales
+  - Incluye formularios reactivos donde sea apropiado
+  - Conecta con la API backend en los servicios
+
+  ⚠️ VERIFICA QUE TU JSON SEA 100% VÁLIDO Y TENGA ESCAPE CORRECTO ANTES DE RESPONDER ⚠️
+  
+  SOLO DEVUELVE EL JSON, sin explicaciones ni comentarios adicionales.
+  `;
+}
+
+// Generar módulo para entidad faltante
+private async generateNewModule(resource: string, endpoints: string[]): Promise<any> {
+  try {
+    this.logger.log(`Generando nuevo módulo para ${resource} con ${endpoints.length} endpoints`);
+    
+    // Primero identificamos qué tipos de operaciones CRUD se necesitan
+    const hasGetAll = endpoints.some(e => e.startsWith('get:') && !e.includes(':id'));
+    const hasGetOne = endpoints.some(e => e.startsWith('get:') && e.includes(':id'));
+    const hasCreate = endpoints.some(e => e.startsWith('post:'));
+    const hasUpdate = endpoints.some(e => e.startsWith('put:') || e.startsWith('patch:'));
+    const hasDelete = endpoints.some(e => e.startsWith('delete:'));
+    
+    // Creamos un prompt más genérico basado en los endpoints requeridos
+    const prompt = `
+    Genera un módulo NestJS completo para el recurso "${resource}" que implemente estos endpoints específicos:
+    ${endpoints.map(e => `- ${e}`).join('\n')}
+    
+    Incluye todos estos archivos:
+    1. ${resource}.module.ts
+    2. ${resource}.controller.ts
+    3. ${resource}.service.ts
+    4. entities/${this.singularize(resource)}.entity.ts
+    5. dto/create-${this.singularize(resource)}.dto.ts
+    ${hasUpdate ? `6. dto/update-${this.singularize(resource)}.dto.ts` : ''}
+    
+    Implementa estas operaciones CRUD según los endpoints:
+    ${hasGetAll ? '- Buscar todos los registros' : ''}
+    ${hasGetOne ? '- Buscar un registro por ID' : ''}
+    ${hasCreate ? '- Crear un nuevo registro' : ''}
+    ${hasUpdate ? '- Actualizar un registro existente' : ''}
+    ${hasDelete ? '- Eliminar un registro' : ''}
+    
+    Devuelve el resultado en JSON con este formato exacto:
+    {
+      "name": "${this.capitalizeFirstLetter(resource)}Module",
+      "files": [
+        {
+          "path": "src/${resource}/${resource}.module.ts",
+          "content": "...",
+          "type": "module"
+        },
+        {
+          "path": "src/${resource}/${resource}.controller.ts",
+          "content": "...",
+          "type": "controller"
+        },
+        ...etc para todos los archivos
+      ],
+      "cliCommands": []
+    }
+    
+    IMPORTANTE:
+    - Implementa TypeORM para la entidad
+    - Usa class-validator para los DTOs
+    - Asegúrate que los métodos del controlador coincidan con los endpoints solicitados
+    - Asegúrate que los nombres de los archivos sigan las convenciones de NestJS
+    - El código debe ser TypeScript válido y seguir las mejores prácticas de NestJS
+    `;
+    
+    const result = await this.retryOperation(async () => {
+      const response = await this.model.generateContent([{ text: prompt }]);
+      return response.response.text();
+    });
+    
+    const moduleData = this.extractJsonFromResponse(result);
+    
+    if (!moduleData || !moduleData.name || !moduleData.files || !Array.isArray(moduleData.files)) {
+      throw new Error('No se pudo extraer la información del módulo generado');
+    }
+    
+    // Verificar y completar los archivos
+    for (const file of moduleData.files) {
+      if (!file.path || !file.content) {
+        this.logger.warn(`Archivo incompleto en el módulo ${resource}`);
+      }
+    }
+    
+    this.logger.log(`Módulo para ${resource} generado con ${moduleData.files.length} archivos`);
+    return moduleData;
+  } catch (error) {
+    this.logger.error(`Error generando nuevo módulo para ${resource}: ${error.message}`);
+    
+    // Generar un módulo básico como fallback
+    return this.generateBasicModule(resource, endpoints);
+  }
+}
+
+// Método auxiliar para capitalizar la primera letra
+private capitalizeFirstLetter(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Método para convertir a singular
+private singularize(str: string): string {
+  if (str.endsWith('ies')) {
+    return str.slice(0, -3) + 'y';
+  } else if (str.endsWith('s') && !str.endsWith('ss')) {
+    return str.slice(0, -1);
+  }
+  return str;
+}
+
+// Método para convertir a plural
+private pluralize(str: string): string {
+  if (str.endsWith('y') && !['a', 'e', 'i', 'o', 'u'].includes(str.charAt(str.length - 2))) {
+    return str.slice(0, -1) + 'ies';
+  } else if (!str.endsWith('s')) {
+    return str + 's';
+  }
+  return str;
+}
+
+// Generar un módulo básico como fallback
+private generateBasicModule(resource: string, endpoints: string[]): any {
+  const singularResource = this.singularize(resource);
+  const capitalizedResource = this.capitalizeFirstLetter(singularResource);
+  const moduleName = `${this.capitalizeFirstLetter(resource)}Module`;
+  
+  // Extraer métodos de los endpoints
+  const hasFindAll = endpoints.some(e => e.startsWith('get:') && !e.includes(':id'));
+  const hasFindOne = endpoints.some(e => e.startsWith('get:') && e.includes(':id'));
+  const hasCreate = endpoints.some(e => e.startsWith('post:'));
+  const hasUpdate = endpoints.some(e => e.startsWith('put:') || e.startsWith('patch:'));
+  const hasRemove = endpoints.some(e => e.startsWith('delete:'));
+  
+  // Generar archivos básicos
+  const moduleContent = `import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ${capitalizedResource}Controller } from './${resource}.controller';
+import { ${capitalizedResource}Service } from './${resource}.service';
+import { ${capitalizedResource} } from './entities/${singularResource}.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([${capitalizedResource}])],
+  controllers: [${capitalizedResource}Controller],
+  providers: [${capitalizedResource}Service],
+  exports: [${capitalizedResource}Service]
+})
+export class ${moduleName} {}`;
+
+  const entityContent = `import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+@Entity()
+export class ${capitalizedResource} {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}`;
+
+  const createDtoContent = `import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+
+export class Create${capitalizedResource}Dto {
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}`;
+
+  const updateDtoContent = `import { PartialType } from '@nestjs/mapped-types';
+import { Create${capitalizedResource}Dto } from './create-${singularResource}.dto';
+
+export class Update${capitalizedResource}Dto extends PartialType(Create${capitalizedResource}Dto) {}`;
+
+  // Generar métodos del servicio según los endpoints requeridos
+  const serviceMethods = [];
+  
+  if (hasCreate) {
+    serviceMethods.push(`async create(create${capitalizedResource}Dto: Create${capitalizedResource}Dto): Promise<${capitalizedResource}> {
+    const ${singularResource} = this.${singularResource}Repository.create(create${capitalizedResource}Dto);
+    return this.${singularResource}Repository.save(${singularResource});
+  }`);
+  }
+  
+  if (hasFindAll) {
+    serviceMethods.push(`async findAll(): Promise<${capitalizedResource}[]> {
+    return this.${singularResource}Repository.find();
+  }`);
+  }
+  
+  if (hasFindOne) {
+    serviceMethods.push(`async findOne(id: number): Promise<${capitalizedResource}> {
+    const ${singularResource} = await this.${singularResource}Repository.findOneBy({ id });
+    if (!${singularResource}) {
+      throw new NotFoundException(\`${capitalizedResource} #\${id} not found\`);
+    }
+    return ${singularResource};
+  }`);
+  }
+  
+  if (hasUpdate) {
+    serviceMethods.push(`async update(id: number, update${capitalizedResource}Dto: Update${capitalizedResource}Dto): Promise<${capitalizedResource}> {
+    const ${singularResource} = await this.findOne(id);
+    const updated = Object.assign(${singularResource}, update${capitalizedResource}Dto);
+    return this.${singularResource}Repository.save(updated);
+  }`);
+  }
+  
+  if (hasRemove) {
+    serviceMethods.push(`async remove(id: number): Promise<void> {
+    const ${singularResource} = await this.findOne(id);
+    await this.${singularResource}Repository.remove(${singularResource});
+  }`);
+  }
+  
+  const serviceContent = `import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ${capitalizedResource} } from './entities/${singularResource}.entity';
+import { Create${capitalizedResource}Dto } from './dto/create-${singularResource}.dto';
+${hasUpdate ? `import { Update${capitalizedResource}Dto } from './dto/update-${singularResource}.dto';` : ''}
+
+@Injectable()
+export class ${capitalizedResource}Service {
+  constructor(
+    @InjectRepository(${capitalizedResource})
+    private ${singularResource}Repository: Repository<${capitalizedResource}>,
+  ) {}
+
+  ${serviceMethods.join('\n\n  ')}
+}`;
+
+  // Generar métodos del controlador según los endpoints requeridos
+  const controllerMethods = [];
+  
+  if (hasCreate) {
+    controllerMethods.push(`@Post()
+  create(@Body() create${capitalizedResource}Dto: Create${capitalizedResource}Dto) {
+    return this.${singularResource}Service.create(create${capitalizedResource}Dto);
+  }`);
+  }
+  
+  if (hasFindAll) {
+    controllerMethods.push(`@Get()
+  findAll() {
+    return this.${singularResource}Service.findAll();
+  }`);
+  }
+  
+  if (hasFindOne) {
+    controllerMethods.push(`@Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.${singularResource}Service.findOne(+id);
+  }`);
+  }
+  
+  if (hasUpdate) {
+    controllerMethods.push(`@Patch(':id')
+  update(@Param('id') id: string, @Body() update${capitalizedResource}Dto: Update${capitalizedResource}Dto) {
+    return this.${singularResource}Service.update(+id, update${capitalizedResource}Dto);
+  }`);
+  }
+  
+  if (hasRemove) {
+    controllerMethods.push(`@Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.${singularResource}Service.remove(+id);
+  }`);
+  }
+  
+  const controllerContent = `import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { ${capitalizedResource}Service } from './${resource}.service';
+import { Create${capitalizedResource}Dto } from './dto/create-${singularResource}.dto';
+${hasUpdate ? `import { Update${capitalizedResource}Dto } from './dto/update-${singularResource}.dto';` : ''}
+
+@Controller('${resource}')
+export class ${capitalizedResource}Controller {
+  constructor(private readonly ${singularResource}Service: ${capitalizedResource}Service) {}
+
+  ${controllerMethods.join('\n\n  ')}
+}`;
+
+  // Armar los archivos del módulo
+  const files = [
+    {
+      path: `src/${resource}/${resource}.module.ts`,
+      content: moduleContent,
+      type: 'module'
+    },
+    {
+      path: `src/${resource}/${resource}.controller.ts`,
+      content: controllerContent,
+      type: 'controller'
+    },
+    {
+      path: `src/${resource}/${resource}.service.ts`,
+      content: serviceContent,
+      type: 'service'
+    },
+    {
+      path: `src/${resource}/entities/${singularResource}.entity.ts`,
+      content: entityContent,
+      type: 'entity'
+    },
+    {
+      path: `src/${resource}/dto/create-${singularResource}.dto.ts`,
+      content: createDtoContent,
+      type: 'dto'
+    }
+  ];
+  
+  // Agregar DTO de actualización si es necesario
+  if (hasUpdate) {
+    files.push({
+      path: `src/${resource}/dto/update-${singularResource}.dto.ts`,
+      content: updateDtoContent,
+      type: 'dto'
+    });
+  }
+  
+  return {
+    name: moduleName,
+    files,
+    cliCommands: []
+  };
+}
+
+// Validar el SharedModule (implementación genérica)
+private validateSharedModule(frontend: AngularFrontend): void {
+  const sharedModule = frontend.modules.find(m => m.name === 'SharedModule');
+  if (!sharedModule) return;
+  
+  // Verificar material.module.ts
+  const hasMaterialModule = sharedModule.files.some(f => 
+    f.path.includes('material.module.ts')
+  );
+  
+  if (!hasMaterialModule) {
+    this.logger.warn('No se encontró material.module.ts en SharedModule');
+    
+    // Generar material.module.ts básico
+    const materialModulePath = this.getModuleBasePath(sharedModule) + '/material.module.ts';
+    sharedModule.files.push({
+      path: materialModulePath,
+      content: this.generateMaterialModuleContent(),
+      type: 'typescript'
+    });
+    this.logger.log('Generado material.module.ts en SharedModule');
+  }
+  
+  // Verificar componentes compartidos esenciales
+  const essentialComponents = [
+    'loading',
+    'error'
+  ];
+  
+  for (const component of essentialComponents) {
+    const hasComponent = sharedModule.files.some(f => 
+      f.path.includes(`/shared/components/${component}/`) || 
+      f.path.includes(`/shared/${component}/`)
+    );
+    
+    if (!hasComponent) {
+      this.logger.warn(`No se encontró el componente ${component} en SharedModule`);
+      
+      // Generaríamos un componente básico aquí, pero simplificando para este ejemplo
+    }
+  }
+}
+
+// Generar contenido básico para material.module.ts
+private generateMaterialModuleContent(): string {
+  return `import { NgModule } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTableModule } from '@angular/material/table';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
+@NgModule({
+  exports: [
+    MatButtonModule,
+    MatCardModule,
+    MatCheckboxModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatListModule,
+    MatMenuModule,
+    MatProgressSpinnerModule,
+    MatSelectModule,
+    MatSidenavModule,
+    MatSnackBarModule,
+    MatTableModule,
+    MatToolbarModule,
+    MatTooltipModule
+  ]
+})
+export class MaterialModule {}
+`;
+}
+
+// Obtener la ruta base de un módulo
+private getModuleBasePath(module: any): string {
+  try {
+    // Buscar un archivo de módulo (.module.ts) para determinar la ruta base
+    const moduleFile = module.files.find(f => f.path.includes('.module.ts'));
+    
+    if (moduleFile) {
+      // Extraer ruta base del archivo de módulo
+      const path = moduleFile.path;
+      return path.substring(0, path.lastIndexOf('/'));
+    }
+    
+    // Si no hay archivo de módulo, buscar cualquier archivo y extraer la ruta base
+    if (module.files.length > 0) {
+      const path = module.files[0].path;
+      return path.substring(0, path.lastIndexOf('/'));
+    }
+    
+    // Valor por defecto si no se puede determinar
+    return `src/app/${this.kebabCase(module.name.replace('Module', ''))}`;
+  } catch (error) {
+    this.logger.error(`Error obteniendo ruta base del módulo: ${error.message}`);
+    return `src/app/${this.kebabCase(module.name.replace('Module', ''))}`;
+  }
+}
+
+
+
+
+
+
+
+
+}l

@@ -1,0 +1,17 @@
+<div class="container">
+  <ng-container *ngIf="project">
+    <h2>Project Detail</h2>
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>{{ project.name }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p><strong>Description:</strong> {{ project.description }}</p>
+        <p><strong>Client:</strong> {{ project.client }}</p>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+  <ng-container *ngIf="!project">
+    <p>Project not found.</p>
+  </ng-container>
+</div>

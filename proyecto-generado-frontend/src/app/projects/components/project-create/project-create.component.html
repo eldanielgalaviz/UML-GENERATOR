@@ -1,0 +1,25 @@
+<div class="container">
+  <h2>Create Project</h2>
+  <form [formGroup]="projectForm" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput placeholder="Name" formControlName="name">
+      <mat-error *ngIf="projectForm.get('name')?.hasError('required')">Name is required.</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Description</mat-label>
+      <textarea matInput placeholder="Description" formControlName="description"></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Client</mat-label>
+      <input matInput placeholder="Client" formControlName="client">
+    </mat-form-field>
+
+    <div>
+      <button mat-raised-button color="primary" type="submit" [disabled]="projectForm.invalid">Create</button>
+      <button mat-button type="button" (click)="cancel()">Cancel</button>
+    </div>
+  </form>
+</div>

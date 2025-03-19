@@ -52,6 +52,7 @@ export class GeminiController {
     }
   }
 
+
 // src/gemini/gemini.controller.ts (sólo el método generateCode)
 
 @Post('generate-code')

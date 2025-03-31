@@ -20,6 +20,7 @@ export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000;
+  
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY')!;
@@ -1997,6 +1998,12 @@ private pluralize(str: string): string {
   return str;
 }
 
+
+private kebabCase(str: string): string {
+  return str.replace(/([a-z])([A-Z])/g, '$1-$2') // Inserta un guion antes de las mayúsculas
+            .replace(/\s+/g, '-') // Reemplaza espacios con guiones
+            .toLowerCase(); // Convierte todo a minúsculas
+}
 // Generar un módulo básico como fallback
 private generateBasicModule(resource: string, endpoints: string[]): any {
   const singularResource = this.singularize(resource);
@@ -2063,13 +2070,13 @@ import { Create${capitalizedResource}Dto } from './create-${singularResource}.dt
 export class Update${capitalizedResource}Dto extends PartialType(Create${capitalizedResource}Dto) {}`;
 
   // Generar métodos del servicio según los endpoints requeridos
-  const serviceMethods = [];
+  const serviceMethods: string[] = [];
   
   if (hasCreate) {
     serviceMethods.push(`async create(create${capitalizedResource}Dto: Create${capitalizedResource}Dto): Promise<${capitalizedResource}> {
-    const ${singularResource} = this.${singularResource}Repository.create(create${capitalizedResource}Dto);
-    return this.${singularResource}Repository.save(${singularResource});
-  }`);
+      const ${singularResource} = this.${singularResource}Repository.create(create${capitalizedResource}Dto);
+      return this.${singularResource}Repository.save(${singularResource});
+    }`);
   }
   
   if (hasFindAll) {
@@ -2121,7 +2128,7 @@ export class ${capitalizedResource}Service {
 }`;
 
   // Generar métodos del controlador según los endpoints requeridos
-  const controllerMethods = [];
+  const controllerMethods : string[] = [];
   
   if (hasCreate) {
     controllerMethods.push(`@Post()

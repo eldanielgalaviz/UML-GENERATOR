@@ -21,7 +21,8 @@ export type AngularFileType =
   | 'interface'
   | 'config'
   | 'material'
-  | 'class';
+  | 'class'
+  | 'typescript';
 
 export interface NestJSFile {
   path: string;

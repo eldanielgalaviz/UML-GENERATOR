@@ -12,6 +12,16 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <ChatInterface />
     </div>
+//import UMLViewer from './components/UMLViewer'
+import './index.css'
+import LoginAccess from './components/LoginSingUp/Login';
+import Profile from './components/ProfileEditor/Profile';
+
+function App() {
+  return (
+      <main>
+          <LoginAccess />
+      </main>
   );
 }
 

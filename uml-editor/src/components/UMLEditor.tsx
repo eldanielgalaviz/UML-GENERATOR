@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -37,7 +37,6 @@ const UMLClassNode = ({ data }: { data: UMLClassData }) => {
   );
 };
 
-// Definición de nodos iniciales
 const initialNodes: Node<UMLClassData>[] = [
   {
     id: '1',
@@ -61,7 +60,6 @@ const initialNodes: Node<UMLClassData>[] = [
   },
 ];
 
-// Definición de conexiones iniciales
 const initialEdges: Edge[] = [
   {
     id: 'e1-2',
@@ -80,8 +78,8 @@ const UMLEditor = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  const onConnect = useCallback((params: Connection) => 
-    setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds)), 
+  const onConnect = useCallback((params: Connection) =>
+    setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds)),
     []
   );
 
@@ -89,9 +87,9 @@ const UMLEditor = () => {
     const newNode: Node<UMLClassData> = {
       id: `${nodes.length + 1}`,
       type: 'umlClass',
-      position: { 
-        x: Math.random() * 500, 
-        y: Math.random() * 500 
+      position: {
+        x: Math.random() * 500,
+        y: Math.random() * 500
       },
       data: {
         label: 'Nueva Clase',

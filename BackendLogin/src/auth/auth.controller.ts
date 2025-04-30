@@ -8,6 +8,7 @@ import { Request as ExpressRequest } from 'express';
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private authService: AuthService,
     private usersService: UsersService,
@@ -15,7 +16,17 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() createUserDto: CreateUserDto) {
-    this.logger.debug('Recibida petición de registro:', createUserDto.email);
+    this.logger.debug('Recibida petición de registro:');
+    this.logger.debug(createUserDto.email);
+    
+    // Verificación adicional de contraseñas en el controlador
+    if (createUserDto.password !== createUserDto.confirmPassword) {
+      this.logger.warn('Contraseñas no coinciden en la verificación del controlador');
+      this.logger.debug(`Password: ${createUserDto.password}`);
+      this.logger.debug(`ConfirmPassword: ${createUserDto.confirmPassword}`);
+      throw new BadRequestException('Las contraseñas no coinciden');
+    }
+    
     try {
       const result = await this.authService.register(createUserDto);
       this.logger.debug('Registro exitoso');
@@ -28,16 +39,16 @@ export class AuthController {
 
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
-    console.log('Solicitud de recuperación de contraseña para:', body.email);
+    this.logger.debug('Solicitud de recuperación de contraseña para:', body.email);
     
     try {
       const result = await this.authService.forgotPassword(body.email);
       return result;
     } catch (error) {
-      console.error('Error completo en forgot-password:', error);
+      this.logger.error('Error en forgot-password:', error);
       
       if (error instanceof NotFoundException) {
-        // Si el usuario no existe
+        // Por seguridad, no revelamos si el email existe o no
         return { message: 'Si el email existe, recibirás un enlace para restablecer tu contraseña' };
       }
       
@@ -48,13 +59,13 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() body: { token: string; newPassword: string }) {
     try {
-      console.log('Solicitando reseteo de contraseña');
-      console.log('Token recibido:', body.token);
+      this.logger.debug('Solicitando reseteo de contraseña');
+      this.logger.debug('Token recibido (longitud):', body.token?.length);
       
       const result = await this.authService.resetPassword(body.token, body.newPassword);
       return result;
     } catch (error) {
-      console.error('Error en reset-password:', error);
+      this.logger.error('Error en reset-password:', error);
       
       if (error instanceof UnauthorizedException) {
         throw new UnauthorizedException('Token inválido o expirado');
@@ -66,17 +77,21 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() loginDto: { username: string; password: string }) {
-    const user = await this.authService.validateUser(
-      loginDto.username,
-      loginDto.password,
-    );
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
+    try {
+      this.logger.log(`Intento de inicio de sesión: ${loginDto.username}`);
+      
+      const result = await this.authService.login({
+        username: loginDto.username,
+        password: loginDto.password
+      });
+      
+      this.logger.log(`¡LOGIN EXITOSO! El usuario ${loginDto.username} pudo acceder correctamente`);
+      
+      return result;
+    } catch (error) {
+      this.logger.warn(`Intento de inicio de sesión fallido para ${loginDto.username}: ${error.message}`);
+      throw error;
     }
-    return this.authService.login({
-      username: loginDto.username,
-      password: loginDto.password
-    });
   }
   
   @Get('confirm')
@@ -87,7 +102,12 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req: ExpressRequest) {
-    return req.user;
+  getProfile(@Request() req: ExpressRequest & { user?: { username: string } }) {
+    const user = req.user;
+    if (!user || !user.username) {
+      throw new UnauthorizedException('Usuario no autenticado');
+    }
+    this.logger.log(`Usuario ${user.username} ha accedido a su perfil`);
+    return user;
   }
 }

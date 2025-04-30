@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { analyzeRequirements, generateCode } from "../services/api.service";
 import { FileText, MoreHorizontal } from "lucide-react";
-import { useState, useEffect } from 'react';
 import axios from 'axios';
 import mermaid from 'mermaid';
 import type { MermaidConfig } from 'mermaid';
@@ -65,9 +64,6 @@ const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
 
 const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
   const [requirements, setRequirements] = useState("");
-const LiveUMLViewer = () => {
-  const [requirements, setRequirements] = useState('');
-  const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -144,12 +140,18 @@ const LiveUMLViewer = () => {
       setError("");
       console.log("Enviando requerimientos al servidor...");
 
-      const data = await analyzeRequirements(requirements.trim());
+      const data = await analyzeRequirements(requirements.trim()) as AnalysisResponse;
       console.log("Datos recibidos:", data);
 
       if (data.diagrams && Array.isArray(data.diagrams)) {
-        setDiagrams(data.diagrams);
-        setAnalysisResponse(data);
+        setDiagrams(data.diagrams as DiagramType[]);
+        setAnalysisResponse({
+          ...data,
+          diagrams: data.diagrams.map((diagram) => ({
+            ...diagram,
+            type: diagram.type as DiagramType["type"],
+          })),
+        });
         if (data.diagrams.length > 0) {
           setSelectedDiagram(data.diagrams[0]);
         }

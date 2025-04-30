@@ -126,7 +126,7 @@ export class GeminiService {
       }
   
       // Validar y limpiar cada requerimiento
-      const validatedRequirements = parsed.requirements.map((req, index) => ({
+      const validatedRequirements = parsed.requirements.map((req: any, index: number) => ({
         id: req.id?.match(/^REQ-\d{3}$/) ? req.id : `REQ-${String(index + 1).padStart(3, '0')}`,
         type: ['functional', 'non-functional'].includes(req.type) ? req.type : 'functional',
         description: (req.description || 'No description provided').trim(),
@@ -2313,7 +2313,7 @@ export class MaterialModule {}
 private getModuleBasePath(module: any): string {
   try {
     // Buscar un archivo de módulo (.module.ts) para determinar la ruta base
-    const moduleFile = module.files.find(f => f.path.includes('.module.ts'));
+    const moduleFile = module.files.find((f: { path: string }) => f.path.includes('.module.ts'));
     
     if (moduleFile) {
       // Extraer ruta base del archivo de módulo

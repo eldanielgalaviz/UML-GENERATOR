@@ -25,9 +25,9 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(3000);
+  //await app.listen(3000);
   // Cambiar a puerto 3001 para el backend
-  const port = 3005;
+  const port = 3000;
   await app.listen(port);
   
   console.log(`Backend server running on http://localhost:${port}`);

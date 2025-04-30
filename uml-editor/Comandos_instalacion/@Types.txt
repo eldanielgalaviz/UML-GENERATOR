@@ -1,0 +1,6 @@
+
+npm install --save-dev @types/express @types/passport-jwt
+
+//typeorm y dependencias
+
+npm install --save @nestjs/typeorm typeorm

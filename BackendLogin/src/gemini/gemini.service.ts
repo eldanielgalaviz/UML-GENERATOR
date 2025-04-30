@@ -247,6 +247,46 @@ export class GeminiService {
         }
         ModuloUsuarios --> ModuloTareas
         \`\`\`
+        `,
+        
+        useCaseDiagram: `
+        Genera un diagrama de casos de uso Mermaid válido. 
+        Asegúrate de incluir:
+        - Actores
+        - Casos de uso
+        - Relaciones entre actores y casos de uso
+        - Uso correcto de la sintaxis Mermaid
+        
+        📌 **Ejemplo de sintaxis correcta:**
+        \`\`\`mermaid
+        flowchart TD
+          actor((Usuario))
+          caso1[Registrarse]
+          actor --> caso1
+        \`\`\`
+        `,
+        
+        componentDiagram: `
+        Genera un diagrama de componentes Mermaid válido. 
+        Asegúrate de incluir:
+        - Componentes del sistema
+        - Relaciones entre componentes
+        - Interfaces
+        - Uso correcto de la sintaxis Mermaid
+        
+        📌 **Ejemplo de sintaxis correcta:**
+        \`\`\`mermaid
+        flowchart LR
+          subgraph Frontend
+            UI[Interfaz de Usuario]
+          end
+          subgraph Backend
+            API[API REST]
+            DB[(Base de Datos)]
+          end
+          UI --> API
+          API --> DB
+        \`\`\`
         `
     };
 
@@ -281,9 +321,12 @@ export class GeminiService {
       sequenceDiagram: 'Diagrama de Secuencia',
       activityDiagram: 'Diagrama de Actividades',
       erDiagram: 'Diagrama Entidad-Relación',
-      flowchart: 'Diagrama de Flujo'
+      flowchart: 'Diagrama de Flujo',
+      packageDiagram: 'Diagrama de Paquetes',
+      useCaseDiagram: 'Diagrama de Casos de Uso',
+      componentDiagram: 'Diagrama de Componentes'
     };
-    return titles[type];
+    return titles[type] || `Diagrama ${type}`;  // Valor por defecto por si acaso
   }
 
   private cleanJsonResponse(text: string): string {

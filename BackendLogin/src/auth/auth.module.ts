@@ -9,21 +9,21 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
 
 @Module({
-imports: [
+  imports: [
     UsersModule,
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({
-    imports: [ConfigModule],
-    useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || 'your_jwt_secret_key',
         signOptions: { expiresIn: '24h' },
+      }),
+      inject: [ConfigService],
     }),
-    inject: [ConfigService],
-    }),
-],
-providers: [AuthService, JwtStrategy, EmailService, ConfigService],
-controllers: [AuthController],
-exports: [AuthService, EmailService], // Exportamos los servicios si otros módulos los necesitan
+  ],
+  providers: [AuthService, JwtStrategy, EmailService, ConfigService],
+  controllers: [AuthController],
+  exports: [AuthService, EmailService],
 })
 export class AuthModule {}

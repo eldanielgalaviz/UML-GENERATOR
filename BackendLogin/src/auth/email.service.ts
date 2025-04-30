@@ -14,7 +14,9 @@ export class EmailService {
     this.logger.debug(`Configurando servicio de email con usuario: ${user}`);
 
     this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // true para 465, false para otros puertos
         auth: {
           user,
           pass,
@@ -31,7 +33,8 @@ export class EmailService {
       this.logger.log('Conexión con el servidor de correo establecida');
     } catch (error) {
       this.logger.error('Error al conectar con el servidor de correo:', error);
-      throw error;
+      // No lanzamos el error para evitar que la aplicación completa se detenga
+      // Solo registramos el problema
     }
   }
   
@@ -46,7 +49,7 @@ export class EmailService {
       const result = await this.transporter.sendMail({
         from: {
           name: 'UML Generator',
-          address: 'generatoruml@gmail.com' // Hardcoded email address
+          address: this.configService.get('EMAIL_FROM') || 'generatoruml@gmail.com'
         },
         to,
         subject: 'Confirma tu correo electrónico',
@@ -89,7 +92,7 @@ export class EmailService {
       await this.transporter.sendMail({
         from: {
           name: 'UML Generator',
-          address: 'generatoruml@gmail.com' // Hardcoded email address
+          address: this.configService.get('EMAIL_FROM') || 'generatoruml@gmail.com'
         },
         to: to,
         subject: 'Recuperación de contraseña',
@@ -116,9 +119,9 @@ export class EmailService {
         `
       });
 
-      console.log('Email de recuperación enviado a:', to);
+      this.logger.log('Email de recuperación enviado a:', to);
     } catch (error) {
-      console.error('Error al enviar email de recuperación:', error);
+      this.logger.error('Error al enviar email de recuperación:', error);
       throw new Error('No se pudo enviar el email de recuperación de contraseña');
     }
   }

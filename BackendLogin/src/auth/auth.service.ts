@@ -166,6 +166,9 @@ export class AuthService {
     console.log('Datos de login recibidos:', loginDto);
     const user = await this.validateUser(loginDto.username, loginDto.password);
 
+    // Obtener el perfil completo del usuario después de validar las credenciales
+    const userFull = await this.usersService.findOne(user.id);
+
     const payload = {
       email: user.email,
       sub: user.id,
@@ -179,12 +182,7 @@ export class AuthService {
     return {
       message: `¡Bienvenido ${user.nombre || user.username}! Has iniciado sesión correctamente`,
       access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        nombre: user.nombre
-      }
+      user: userFull // Devolver el perfil completo del usuario
     };
   }
 }

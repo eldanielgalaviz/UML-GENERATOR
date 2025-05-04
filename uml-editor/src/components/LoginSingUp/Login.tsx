@@ -14,9 +14,11 @@ interface User {
   id: number;
   username: string;
   email: string;
-  nombre?: string;
+  nombre: string;  
+  apellidoPaterno: string; 
+  apellidoMaterno: string; 
+  fechaNacimiento: string;
 }
-
 interface LoginAccessProps {
   onLoginSuccess?: (user: User) => void;
 }

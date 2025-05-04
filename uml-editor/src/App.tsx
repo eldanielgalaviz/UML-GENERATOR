@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ChatInterface from "./components/chat-interface";
-import './index.css'
+import './index.css';
 import LoginAccess from './components/LoginSingUp/Login';
 import Profile from './components/ProfileEditor/Profile';
 
+// Interfaz completa del usuario que coincide con la entidad del backend
 interface User {
   id: number;
   username: string;
   email: string;
-  nombre?: string;
+  nombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  fechaNacimiento: string;
 }
 
 function App() {
@@ -26,6 +31,7 @@ function App() {
       if (token && userJson) {
         try {
           const user = JSON.parse(userJson);
+          console.log("Datos del usuario cargados desde localStorage:", user);
           setCurrentUser(user);
         } catch (error) {
           console.error('Error al parsear datos del usuario:', error);
@@ -43,7 +49,19 @@ function App() {
   // Función para manejar el inicio de sesión exitoso
   const handleLoginSuccess = (user: User) => {
     console.log("Login exitoso para usuario:", user);
-    setCurrentUser(user);
+    
+    // Asegurarse de que todos los campos estén presentes
+    const completeUser = {
+      ...user,
+      nombre: user.nombre || "",
+      apellidoPaterno: user.apellidoPaterno || "",
+      apellidoMaterno: user.apellidoMaterno || "",
+      fechaNacimiento: user.fechaNacimiento || ""
+    };
+    
+    // Guardar usuario completo en localStorage y estado
+    localStorage.setItem('user', JSON.stringify(completeUser));
+    setCurrentUser(completeUser);
   };
   
   // Función para manejar el cierre de sesión
@@ -51,6 +69,11 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setCurrentUser(null);
+  };
+  
+  // Componente para rutas protegidas que requieren autenticación
+  const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
+    return currentUser ? element : <Navigate to="/login" />;
   };
   
   // Mostrar un indicador de carga mientras verificamos la autenticación
@@ -66,34 +89,30 @@ function App() {
   }
   
   return (
-    <main>
-      {currentUser ? (
-        // Si hay un usuario autenticado, mostrar el ChatInterface
-        <>
-          {/* Barra superior con información del usuario y botón de cierre de sesión */}
-          <div className="fixed top-0 left-0 right-0 bg-gray-800 z-10 px-4 py-2 flex justify-between items-center shadow-md">
-            <div className="flex items-center">
-              <span className="font-bold text-white">{currentUser.nombre || currentUser.username}</span>
-              <span className="text-gray-400 ml-2">({currentUser.email})</span>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-          
-          {/* Componente ChatInterface */}
-          <div className="pt-10"> {/* Añadir padding-top para la barra de navegación */}
-            <ChatInterface />
-          </div>
-        </>
-      ) : (
-        // Si no hay usuario autenticado, mostrar el LoginAccess
-        <LoginAccess onLoginSuccess={handleLoginSuccess} />
-      )}
-    </main>
+    <BrowserRouter>
+      <Routes>
+        {/* Ruta para el inicio de sesión */}
+        <Route 
+          path="/login" 
+          element={!currentUser ? <LoginAccess onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} 
+        />
+        
+        {/* Ruta principal - Chat Interface */}
+        <Route 
+          path="/" 
+          element={<ProtectedRoute element={<ChatInterface />} />} 
+        />
+        
+        {/* Ruta para la página de perfil/configuración */}
+        <Route 
+          path="/perfil" 
+          element={<ProtectedRoute element={<Profile />} />} 
+        />
+        
+        {/* Redirección para rutas no encontradas */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

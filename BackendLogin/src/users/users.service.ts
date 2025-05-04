@@ -85,7 +85,22 @@ export class UsersService {
 
   async findByUsername(username: string): Promise<User> {
     try {
-      const user = await this.usersRepository.findOne({ where: { username }, select: ['id', 'email', 'username', 'password', 'nombre', 'isEmailConfirmed'] });
+      // Modificado para incluir apellidoPaterno, apellidoMaterno y fechaNacimiento
+      const user = await this.usersRepository.findOne({ 
+        where: { username }, 
+        select: [
+          'id', 
+          'email', 
+          'username', 
+          'password', 
+          'nombre', 
+          'apellidoPaterno',  // Añadido
+          'apellidoMaterno',  // Añadido
+          'fechaNacimiento',  // Añadido
+          'isEmailConfirmed'
+        ] 
+      });
+      
       if (!user) {
         throw new NotFoundException('Usuario no encontrado');
       }
@@ -100,7 +115,22 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User> {
     try {
-      const user = await this.usersRepository.findOne({ where: { email } });
+      // También actualizado para incluir los mismos campos que findByUsername
+      const user = await this.usersRepository.findOne({ 
+        where: { email },
+        select: [
+          'id', 
+          'email', 
+          'username', 
+          'password', 
+          'nombre', 
+          'apellidoPaterno',  // Añadido
+          'apellidoMaterno',  // Añadido
+          'fechaNacimiento',  // Añadido
+          'isEmailConfirmed'
+        ]
+      });
+      
       if (!user) {
         throw new NotFoundException('Usuario no encontrado');
       }
@@ -171,8 +201,6 @@ export class UsersService {
   
   async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<User> {
     try {
-      // Si se actualiza el email, verificar que no esté en uso
-
       // Si se actualiza el username, verificar que no esté en uso
       if (updateProfileDto.username) {
         const existingUser = await this.usersRepository.findOne({
@@ -191,7 +219,7 @@ export class UsersService {
 
       const updatedUser = await this.usersRepository.findOne({
         where: { id: userId },
-        select: ['id', 'username', 'nombre', 'apellidoPaterno', 'apellidoMaterno', 'fechaNacimiento']
+        select: ['id', 'username', 'email', 'nombre', 'apellidoPaterno', 'apellidoMaterno', 'fechaNacimiento']
       });
 
       if (!updatedUser) {

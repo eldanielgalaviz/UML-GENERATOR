@@ -27,7 +27,7 @@ interface GeneratedCode {
   frontend: any;
 }
 
-const API_URL = 'http://localhost:3001/api'; // Ajusta según tu configuración
+const API_URL = 'http://localhost:3005/api'; // Ajusta según tu configuración
 
 // Actualizar la función existente para que acepte sessionId
 export const analyzeRequirements = async (requirements: string, sessionId?: string | null): Promise<AnalysisResponse> => {

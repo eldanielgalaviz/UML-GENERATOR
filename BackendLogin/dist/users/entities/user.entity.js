@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
 const typeorm_1 = require("typeorm");
 const class_transformer_1 = require("class-transformer");
+const conversation_entity_1 = require("../../conversation/entities/conversation.entity");
 let User = class User {
 };
 exports.User = User;
@@ -56,6 +57,10 @@ __decorate([
     (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)
 ], User.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => conversation_entity_1.Conversation, conversation => conversation.user),
+    __metadata("design:type", Array)
+], User.prototype, "conversations", void 0);
 __decorate([
     (0, typeorm_1.Column)({ default: false }),
     __metadata("design:type", Boolean)

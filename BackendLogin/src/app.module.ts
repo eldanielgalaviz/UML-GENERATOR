@@ -1,19 +1,17 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { GeminiModule } from './gemini/gemini.module';
-
+import { ConversationModule } from './conversation/conversation.module';
 
 @Module({
   imports: [
-    // Configuración global
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    GeminiModule,
-    // Configuración de base de datos
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -28,10 +26,10 @@ import { GeminiModule } from './gemini/gemini.module';
       }),
       inject: [ConfigService],
     }),
-    // Módulos funcionales
     AuthModule,
     UsersModule,
-    //GeminiModule,
+    GeminiModule,
+    ConversationModule,
   ],
 })
 export class AppModule {}

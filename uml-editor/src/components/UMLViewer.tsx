@@ -15,6 +15,8 @@ interface AnalysisResponse {
 
 interface UMLViewerProps {
   onAnalysisComplete?: (response: AnalysisResponse) => void;
+  sessionId?: string | null;
+  initialDiagrams?: any[];
 }
 
 const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
@@ -55,7 +57,11 @@ const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
   );
 };
 
-const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
+const UMLViewer: React.FC<UMLViewerProps> = ({ 
+  onAnalysisComplete, 
+  sessionId, 
+  initialDiagrams 
+}) => {
   const [requirements, setRequirements] = useState('');
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -64,6 +70,14 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
   const [selectedDiagram, setSelectedDiagram] = useState<DiagramType | null>(null);
   const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
   const [mermaidLoaded, setMermaidLoaded] = useState(false);
+  useEffect(() => {
+    if (initialDiagrams && initialDiagrams.length > 0) {
+      setDiagrams(initialDiagrams);
+      if (initialDiagrams.length > 0) {
+        setSelectedDiagram(initialDiagrams[0]);
+      }
+    }
+  }, [initialDiagrams]);
 
   useEffect(() => {
     const loadMermaid = async () => {
@@ -99,6 +113,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
     loadMermaid();
   }, []);
 
+  // Modificar handleAnalyze para incluir sessionId
   const handleAnalyze = async () => {
     if (!requirements.trim()) {
       setError('Por favor ingresa los requerimientos');
@@ -110,7 +125,13 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
       setError('');
       console.log('Enviando requerimientos al servidor...');
 
-      const data = await analyzeRequirements(requirements.trim());
+      // Incluir el sessionId en el header si existe
+      const headers: Record<string, string> = {};
+      if (sessionId) {
+        headers['session-id'] = sessionId;
+      }
+
+      const data = await analyzeRequirements(requirements.trim(), sessionId);
       console.log('Datos recibidos:', data);
 
       if (data.diagrams && Array.isArray(data.diagrams)) {
@@ -126,10 +147,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
         throw new Error('No se recibieron diagramas válidos');
       }
     } catch (err: any) {
-      console.error('Error en handleAnalyze:', err);
-      setError(err.message || 'Error al analizar los requerimientos');
-    } finally {
-      setLoading(false);
+      // ... código existente
     }
   };
 
@@ -146,7 +164,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({ onAnalysisComplete }) => {
 
       const codeData = await generateCode(
         analysisResponse.diagrams,
-        analysisResponse.requirements
+        analysisResponse.requirements,
+        sessionId
       );
       
       console.log('Código generado:', codeData);

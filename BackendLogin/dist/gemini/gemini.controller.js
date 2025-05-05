@@ -26,16 +26,25 @@ let GeminiController = GeminiController_1 = class GeminiController {
         this.conversationService = conversationService;
         this.logger = new common_1.Logger(GeminiController_1.name);
     }
-    async analyzeRequirements(dto, sessionId) {
+    async analyzeRequirements(dto, sessionId, req) {
+        var _a;
         try {
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+            console.log('Usuario autenticado:', userId);
             const currentSessionId = sessionId || (0, uuid_1.v4)();
             let fullPrompt = dto.requirements;
-            if (sessionId && this.conversationService.getConversation(sessionId)) {
-                this.conversationService.addMessage(sessionId, 'user', dto.requirements);
-                fullPrompt = this.conversationService.getFullPrompt(sessionId);
+            if (sessionId) {
+                const existingConversation = await this.conversationService.getConversation(sessionId);
+                if (existingConversation) {
+                    await this.conversationService.addMessage(sessionId, 'user', dto.requirements, userId);
+                    fullPrompt = this.conversationService.getFullPrompt(sessionId);
+                }
+                else {
+                    await this.conversationService.createConversation(currentSessionId, dto.requirements, userId);
+                }
             }
             else {
-                this.conversationService.createConversation(currentSessionId, dto.requirements);
+                await this.conversationService.createConversation(currentSessionId, dto.requirements, userId);
             }
             const analysis = await this.geminiService.analyzeRequirements(fullPrompt);
             analysis.diagrams = analysis.diagrams.filter(diagram => {
@@ -47,7 +56,14 @@ let GeminiController = GeminiController_1 = class GeminiController {
                     return false;
                 }
             });
-            this.conversationService.updateConversation(currentSessionId, analysis.requirements, analysis.diagrams);
+            if (userId) {
+                await this.conversationService.createOrUpdateConversation(currentSessionId, dto.requirements, userId, analysis.requirements, analysis.diagrams);
+                console.log(`Conversación guardada para usuario ${userId}`);
+            }
+            else {
+                console.log('No hay usuario autenticado, no se guardará la conversación');
+            }
+            await this.conversationService.updateConversation(currentSessionId, analysis.requirements, analysis.diagrams, userId);
             return Object.assign(Object.assign({}, analysis), { sessionId: currentSessionId });
         }
         catch (error) {
@@ -58,12 +74,17 @@ let GeminiController = GeminiController_1 = class GeminiController {
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    async generateCode(dto, sessionId) {
+    async generateCode(dto, sessionId, req) {
+        var _a;
         try {
             this.logger.log('Iniciando generación de código...');
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
             const requirements = dto.requirements.map(req => (Object.assign(Object.assign({}, req), { dependencies: req.dependencies || [] })));
-            if (sessionId && this.conversationService.getConversation(sessionId)) {
-                this.conversationService.updateConversation(sessionId, requirements, dto.diagrams);
+            if (sessionId) {
+                const existingConversation = await this.conversationService.getConversation(sessionId);
+                if (existingConversation) {
+                    await this.conversationService.updateConversation(sessionId, requirements, dto.diagrams, userId);
+                }
             }
             const generatedCode = await this.geminiService.generateCode(dto.diagrams, requirements);
             return generatedCode;
@@ -76,16 +97,18 @@ let GeminiController = GeminiController_1 = class GeminiController {
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    async continueConversation(dto, sessionId) {
+    async continueConversation(dto, sessionId, req) {
+        var _a;
         try {
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
             if (!sessionId) {
                 throw new common_1.HttpException('Se requiere session-id para continuar la conversación', common_1.HttpStatus.BAD_REQUEST);
             }
-            const conversation = this.conversationService.getConversation(sessionId);
+            const conversation = await this.conversationService.getConversation(sessionId);
             if (!conversation) {
                 throw new common_1.HttpException(`Conversación con ID ${sessionId} no encontrada`, common_1.HttpStatus.NOT_FOUND);
             }
-            this.conversationService.addMessage(sessionId, 'user', dto.message);
+            await this.conversationService.addMessage(sessionId, 'user', dto.message, userId);
             const fullPrompt = this.conversationService.getFullPrompt(sessionId);
             const analysis = await this.geminiService.analyzeRequirements(fullPrompt);
             analysis.diagrams = analysis.diagrams.filter(diagram => {
@@ -97,7 +120,7 @@ let GeminiController = GeminiController_1 = class GeminiController {
                     return false;
                 }
             });
-            this.conversationService.updateConversation(sessionId, analysis.requirements, analysis.diagrams);
+            await this.conversationService.updateConversation(sessionId, analysis.requirements, analysis.diagrams, userId);
             return Object.assign(Object.assign({}, analysis), { sessionId });
         }
         catch (error) {
@@ -114,24 +137,27 @@ __decorate([
     (0, common_1.Post)('analyze'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __param(1, (0, common_1.Headers)('session-id')),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [analyze_requirements_dto_1.AnalyzeRequirementsDto, String]),
+    __metadata("design:paramtypes", [analyze_requirements_dto_1.AnalyzeRequirementsDto, String, Object]),
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "analyzeRequirements", null);
 __decorate([
     (0, common_1.Post)('generate-code'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __param(1, (0, common_1.Headers)('session-id')),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [generate_code_dto_1.GenerateCodeDto, String]),
+    __metadata("design:paramtypes", [generate_code_dto_1.GenerateCodeDto, String, Object]),
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "generateCode", null);
 __decorate([
     (0, common_1.Post)('continue'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Headers)('session-id')),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "continueConversation", null);
 exports.GeminiController = GeminiController = GeminiController_1 = __decorate([

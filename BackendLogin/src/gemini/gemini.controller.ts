@@ -1,4 +1,4 @@
-// BACKEND/src/gemini/gemini.controller.ts
+// src/gemini/gemini.controller.ts
 import {
   Controller,
   Post,
@@ -8,6 +8,7 @@ import {
   ValidationPipe,
   Logger,
   Headers,
+  Request
 } from '@nestjs/common';
 import { GeminiService } from './gemini.service';
 import { AnalyzeRequirementsDto } from './dto/analyze-requirements.dto';
@@ -31,23 +32,36 @@ export class GeminiController {
   @Post('analyze')
   async analyzeRequirements(
     @Body(new ValidationPipe({ transform: true })) dto: AnalyzeRequirementsDto,
-    @Headers('session-id') sessionId: string
+    @Headers('session-id') sessionId: string,
+    @Request() req: any
   ): Promise<AnalysisResponse & { sessionId: string }> {
     try {
+      // Extraer el userId del token JWT
+      const userId = req.user?.userId;
+      console.log('Usuario autenticado:', userId); // Debug para verificar
+      
       // Si no hay ID de sesión, crear uno nuevo
       const currentSessionId = sessionId || uuidv4();
       
       let fullPrompt = dto.requirements;
+      // Si no hay ID de sesión, crear uno nuevo
+      
       
       // Si la sesión ya existe, obtener el historial completo
-      if (sessionId && this.conversationService.getConversation(sessionId)) {
-        // Añadir el mensaje más reciente
-        this.conversationService.addMessage(sessionId, 'user', dto.requirements);
-        // Obtener el prompt completo con el historial
-        fullPrompt = this.conversationService.getFullPrompt(sessionId);
+      if (sessionId) {
+        const existingConversation = await this.conversationService.getConversation(sessionId);
+        if (existingConversation) {
+          // Añadir el mensaje más reciente
+          await this.conversationService.addMessage(sessionId, 'user', dto.requirements, userId);
+          // Obtener el prompt completo con el historial
+          fullPrompt = this.conversationService.getFullPrompt(sessionId);
+        } else {
+          // Crear una nueva conversación
+          await this.conversationService.createConversation(currentSessionId, dto.requirements, userId);
+        }
       } else {
         // Crear una nueva conversación
-        this.conversationService.createConversation(currentSessionId, dto.requirements);
+        await this.conversationService.createConversation(currentSessionId, dto.requirements, userId);
       }
       
       // Analizar con el prompt completo que incluye el historial
@@ -62,12 +76,25 @@ export class GeminiController {
           return false;
         }
       });
+      if (userId) {
+        await this.conversationService.createOrUpdateConversation(
+          currentSessionId,
+          dto.requirements,
+          userId,
+          analysis.requirements,
+          analysis.diagrams
+        );
+        console.log(`Conversación guardada para usuario ${userId}`);
+      } else {
+        console.log('No hay usuario autenticado, no se guardará la conversación');
+      }
 
       // Actualizar el estado de la conversación
-      this.conversationService.updateConversation(
+      await this.conversationService.updateConversation(
         currentSessionId, 
         analysis.requirements, 
-        analysis.diagrams
+        analysis.diagrams,
+        userId
       );
       
       // Añadir el ID de sesión a la respuesta
@@ -90,10 +117,12 @@ export class GeminiController {
   @Post('generate-code')
   async generateCode(
     @Body(new ValidationPipe({ transform: true })) dto: GenerateCodeDto,
-    @Headers('session-id') sessionId: string
+    @Headers('session-id') sessionId: string,
+    @Request() req: any
   ): Promise<GeneratedCode> {
     try {
       this.logger.log('Iniciando generación de código...');
+      const userId = req.user?.userId;
       
       // Nos aseguramos de que las dependencias sean arrays (no undefined)
       const requirements = dto.requirements.map(req => ({
@@ -102,12 +131,16 @@ export class GeminiController {
       }));
       
       // Si hay una sesión, actualizar diagramas
-      if (sessionId && this.conversationService.getConversation(sessionId)) {
-        this.conversationService.updateConversation(
-          sessionId,
-          requirements,
-          dto.diagrams
-        );
+      if (sessionId) {
+        const existingConversation = await this.conversationService.getConversation(sessionId);
+        if (existingConversation) {
+          await this.conversationService.updateConversation(
+            sessionId,
+            requirements,
+            dto.diagrams,
+            userId
+          );
+        }
       }
       
       const generatedCode = await this.geminiService.generateCode(
@@ -132,9 +165,12 @@ export class GeminiController {
   @Post('continue')
   async continueConversation(
     @Body() dto: { message: string },
-    @Headers('session-id') sessionId: string
+    @Headers('session-id') sessionId: string,
+    @Request() req: any
   ): Promise<AnalysisResponse & { sessionId: string }> {
     try {
+      const userId = req.user?.userId;
+      
       if (!sessionId) {
         throw new HttpException(
           'Se requiere session-id para continuar la conversación',
@@ -142,7 +178,7 @@ export class GeminiController {
         );
       }
       
-      const conversation = this.conversationService.getConversation(sessionId);
+      const conversation = await this.conversationService.getConversation(sessionId);
       if (!conversation) {
         throw new HttpException(
           `Conversación con ID ${sessionId} no encontrada`,
@@ -151,7 +187,7 @@ export class GeminiController {
       }
       
       // Añadir el nuevo mensaje
-      this.conversationService.addMessage(sessionId, 'user', dto.message);
+      await this.conversationService.addMessage(sessionId, 'user', dto.message, userId);
       
       // Obtener el prompt completo con el historial
       const fullPrompt = this.conversationService.getFullPrompt(sessionId);
@@ -170,10 +206,11 @@ export class GeminiController {
       });
       
       // Actualizar el estado de la conversación
-      this.conversationService.updateConversation(
+      await this.conversationService.updateConversation(
         sessionId, 
         analysis.requirements, 
-        analysis.diagrams
+        analysis.diagrams,
+        userId
       );
       
       return {
@@ -192,51 +229,3 @@ export class GeminiController {
     }
   }
 }
-
-  // @Post('generate-code')
-  // async generateCode(
-  //   @Body(new ValidationPipe({ transform: true })) dto: GenerateCodeDto
-  // ): Promise<GeneratedCode> {
-  //   try {
-  //     this.logger.log('Iniciando generación de código...');
-      
-  //     if (!dto.diagrams?.length || !dto.requirements?.length) {
-  //       throw new HttpException(
-  //         'Se requieren diagramas y requerimientos válidos',
-  //         HttpStatus.BAD_REQUEST
-  //       );
-  //     }
-
-  //     const formattedRequirements = dto.requirements.map(req => ({
-  //       ...req,
-  //       dependencies: req.dependencies ?? []  // Si es undefined, asigna un array vacío
-  //     }));
-      
-  //     const generatedCode = await this.geminiService.generateCode(
-  //       dto.diagrams,
-  //       formattedRequirements
-  //     );
-      
-      
-  //     if (!generatedCode?.backend?.modules || !generatedCode?.frontend?.modules) {
-  //       throw new HttpException(
-  //         'Error al generar el código: estructura inválida',
-  //         HttpStatus.INTERNAL_SERVER_ERROR
-  //       );
-  //     }
-      
-  //     return generatedCode;
-  //   } catch (error) {
-  //     this.logger.error('Error in generateCode:', error);
-  //     if (error instanceof HttpException) {
-  //       throw error;
-  //     }
-  //     throw new HttpException(
-  //       {
-  //         status: HttpStatus.INTERNAL_SERVER_ERROR,
-  //         error: error.message,
-  //       },
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }

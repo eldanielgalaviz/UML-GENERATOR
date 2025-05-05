@@ -1,25 +1,33 @@
+// src/components/chat-interface.tsx (modificado)
 "use client";
 
-import { Edit, Menu, FileText, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Edit, Menu, FileText, MoreHorizontal, Send } from "lucide-react";
+import { useState, useEffect } from "react";
 import UMLViewer from "./UMLViewer";
 import CodeViewer from "./CodeViewer";
+import ConversationHistory from "./ConversationHistory";
+import { continueConversation, fetchConversationById } from "../services/conversations.service";
 
 interface AnalysisResponse {
   requirements: any[];
   diagrams: any[];
   generatedCode?: any;
+  sessionId?: string;
 }
 
 export default function ChatInterface() {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<"diagrams" | "code">("diagrams");
-  const [analysisResponse, setAnalysisResponse] =
-    useState<AnalysisResponse | null>(null);
+  const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [continuationMessage, setContinuationMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Manejar la respuesta del análisis de requerimientos
   const handleAnalysisComplete = (response: AnalysisResponse) => {
     console.log("Análisis completado:", response);
     setAnalysisResponse(response);
+    setCurrentSessionId(response.sessionId || null);
 
     // Si hay código generado, permitir cambiar a la pestaña de código
     if (response.generatedCode) {
@@ -27,11 +35,57 @@ export default function ChatInterface() {
     }
   };
 
+  // Cargar una conversación existente
+  const handleSelectConversation = async (sessionId: string) => {
+    try {
+      setIsLoading(true);
+      const conversation = await fetchConversationById(sessionId);
+      if (conversation) {
+        setAnalysisResponse({
+          requirements: conversation.requirements || [],
+          diagrams: conversation.diagrams || [],
+          sessionId: sessionId
+        });
+        setCurrentSessionId(sessionId);
+      }
+    } catch (error) {
+      console.error("Error al cargar la conversación:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Enviar un mensaje para continuar la conversación
+  const handleContinueConversation = async () => {
+    if (!currentSessionId || !continuationMessage.trim()) return;
+
+    try {
+      setIsLoading(true);
+      const response = await continueConversation(
+        currentSessionId,
+        continuationMessage
+      );
+      
+      if (response) {
+        setAnalysisResponse({
+          requirements: response.requirements || [],
+          diagrams: response.diagrams || [],
+          sessionId: response.sessionId
+        });
+        setContinuationMessage("");
+      }
+    } catch (error) {
+      console.error("Error al continuar la conversación:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="dark">
       <div className="min-h-screen bg-[#343541] text-white antialiased">
         <div className="flex h-screen">
-          {/* Sidebar */}
+          {/* Sidebar con historial */}
           <div
             className={`${
               isOpen ? "w-64" : "w-0"
@@ -44,21 +98,13 @@ export default function ChatInterface() {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <div>Historial de chats</div>
+              <div>Historial</div>
             </div>
 
-            <nav className="flex-1 p-2 space-y-1">
-              <button className="flex items-center gap-3 w-full p-3 hover:bg-gray-700 rounded-lg transition-colors">
-                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-                  <Edit className="w-4 h-4" />
-                </div>
-                Un chat
-              </button>
-              <button className="flex items-center gap-3 w-full p-3 hover:bg-gray-700 rounded-lg transition-colors">
-                <Edit className="w-5 h-5" />
-                Otro chat
-              </button>
-            </nav>
+            {/* Mostrar historial de conversaciones */}
+            <div className="flex-1 overflow-auto">
+              <ConversationHistory onSelectConversation={handleSelectConversation} />
+            </div>
           </div>
 
           {/* Main Content */}
@@ -94,16 +140,48 @@ export default function ChatInterface() {
                   Código Generado
                 </button>
               </div>
+
               <div>
                 <div className="mt-6">
                   {activeTab === "diagrams" ? (
-                    <UMLViewer onAnalysisComplete={handleAnalysisComplete} />
+                    <UMLViewer
+                      onAnalysisComplete={handleAnalysisComplete}
+                      sessionId={currentSessionId}
+                      initialDiagrams={analysisResponse?.diagrams}
+                    />
                   ) : (
                     <CodeViewer
                       generatedCode={analysisResponse?.generatedCode}
                     />
                   )}
                 </div>
+
+                {/* Área para continuar la conversación */}
+                {currentSessionId && (
+                  <div className="mt-6 border-t border-gray-700 pt-4">
+                    <div className="text-lg font-medium mb-2">
+                      Continuar conversación
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={continuationMessage}
+                        onChange={(e) => setContinuationMessage(e.target.value)}
+                        placeholder="Añade detalles o haz preguntas sobre los diagramas..."
+                        className="flex-1 bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isLoading}
+                      />
+                      <button
+                        onClick={handleContinueConversation}
+                        disabled={isLoading || !continuationMessage.trim()}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 rounded-lg px-4 py-2 flex items-center gap-2"
+                      >
+                        {isLoading ? 'Procesando...' : 'Enviar'}
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </main>

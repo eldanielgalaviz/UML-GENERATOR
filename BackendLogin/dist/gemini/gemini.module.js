@@ -11,15 +11,18 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const gemini_controller_1 = require("./gemini.controller");
 const gemini_service_1 = require("./gemini.service");
-const conversation_service_1 = require("../conversation/conversation.service");
+const conversation_module_1 = require("../conversation/conversation.module");
 let GeminiModule = class GeminiModule {
 };
 exports.GeminiModule = GeminiModule;
 exports.GeminiModule = GeminiModule = __decorate([
     (0, common_1.Module)({
-        imports: [config_1.ConfigModule],
+        imports: [
+            config_1.ConfigModule,
+            conversation_module_1.ConversationModule
+        ],
         controllers: [gemini_controller_1.GeminiController],
-        providers: [gemini_service_1.GeminiService, conversation_service_1.ConversationService],
+        providers: [gemini_service_1.GeminiService],
     })
 ], GeminiModule);
 //# sourceMappingURL=gemini.module.js.map

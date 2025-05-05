@@ -19,7 +19,7 @@ import { UsersModule } from './users/users.module';
         host: configService.get('DB_HOST', 'localhost'),
         port: configService.get('DB_PORT', 5432),
         username: configService.get('DB_USERNAME', 'postgres'),
-        password: configService.get('DB_PASSWORD', 'Empanadis0postgre'),
+        password: configService.get('DB_PASSWORD', 'admin'),
         database: configService.get('DB_NAME', 'UMLGENERATOR'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true,

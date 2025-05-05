@@ -1,5 +1,7 @@
 // BACKEND/src/gemini/gemini.module.ts
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { GeminiController } from './gemini.controller';
 import { GeminiService } from './gemini.service';
 import { ConversationService } from '../conversation/conversation.service';
 
@@ -7,15 +9,5 @@ import { ConversationService } from '../conversation/conversation.service';
   imports: [ConfigModule],
   controllers: [GeminiController],
   providers: [GeminiService, ConversationService],
-//import { GeminiController } from './gemini.controller';
-//import { AuthModule } from '../auth/auth.module';
-
-@Module({
-  imports: [
-    AuthModule // Solo si necesitas la autenticación para las rutas de Gemini
-  ],
-  providers: [GeminiService],
-  controllers: [GeminiController],
-  exports: [GeminiService]
 })
 export class GeminiModule {}

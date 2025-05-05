@@ -129,9 +129,9 @@ async resetPassword(token: string, newPassword: string) {
       }
 
       // Verificar si el email está confirmado
-      if (!user.isEmailConfirmed) {
-        throw new UnauthorizedException('Por favor verifica tu correo electrónico antes de iniciar sesión');
-      }
+      // if (!user.isEmailConfirmed) {
+      //   throw new UnauthorizedException('Por favor verifica tu correo electrónico antes de iniciar sesión');
+      // }
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
       

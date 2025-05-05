@@ -8,10 +8,8 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
-const typeorm_1 = require("@nestjs/typeorm");
 const config_1 = require("@nestjs/config");
-const auth_module_1 = require("./auth/auth.module");
-const users_module_1 = require("./users/users.module");
+const gemini_module_1 = require("./gemini/gemini.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -21,22 +19,7 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
-            typeorm_1.TypeOrmModule.forRootAsync({
-                imports: [config_1.ConfigModule],
-                useFactory: (configService) => ({
-                    type: 'postgres',
-                    host: configService.get('DB_HOST', 'localhost'),
-                    port: configService.get('DB_PORT', 5432),
-                    username: configService.get('DB_USERNAME', 'postgres'),
-                    password: configService.get('DB_PASSWORD', 'Empanadis0postgre'),
-                    database: configService.get('DB_NAME', 'UMLGENERATOR'),
-                    entities: [__dirname + '/**/*.entity{.ts,.js}'],
-                    synchronize: true,
-                }),
-                inject: [config_1.ConfigService],
-            }),
-            auth_module_1.AuthModule,
-            users_module_1.UsersModule,
+            gemini_module_1.GeminiModule
         ],
     })
 ], AppModule);

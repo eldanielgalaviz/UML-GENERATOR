@@ -10,6 +10,7 @@ interface IEEE830Requirement {
   dependencies?: string[];
 }
 
+
 interface MermaidDiagram {
   type: string;
   title: string;
@@ -26,13 +27,21 @@ interface GeneratedCode {
   frontend: any;
 }
 
-const API_URL = 'http://localhost:3000/api'; // Ajusta según tu configuración
+const API_URL = 'http://localhost:3001/api'; // Ajusta según tu configuración
 
-export const analyzeRequirements = async (requirements: string): Promise<AnalysisResponse> => {
+// Actualizar la función existente para que acepte sessionId
+export const analyzeRequirements = async (requirements: string, sessionId?: string | null): Promise<AnalysisResponse> => {
   try {
+    const headers: Record<string, string> = {};
+    
+    if (sessionId) {
+      headers['session-id'] = sessionId;
+    }
+    
     const response = await axios.post(`${API_URL}/gemini/analyze`, {
       requirements
-    });
+    }, { headers });
+    
     return response.data;
   } catch (error) {
     console.error('Error analyzing requirements:', error);
@@ -40,18 +49,43 @@ export const analyzeRequirements = async (requirements: string): Promise<Analysi
   }
 };
 
+// Actualizar la función existente para que acepte sessionId
 export const generateCode = async (
   diagrams: MermaidDiagram[],
-  requirements: IEEE830Requirement[]
+  requirements: IEEE830Requirement[],
+  sessionId?: string | null
 ): Promise<GeneratedCode> => {
   try {
+    const headers: Record<string, string> = {};
+    
+    if (sessionId) {
+      headers['session-id'] = sessionId;
+    }
+    
     const response = await axios.post(`${API_URL}/gemini/generate-code`, {
       diagrams,
       requirements
-    });
+    }, { headers });
+    
     return response.data;
   } catch (error) {
     console.error('Error generating code:', error);
+    throw error;
+  }
+};
+// Agregar esta nueva función a src/services/api.service.ts
+export const continueConversation = async (message: string, sessionId: string): Promise<AnalysisResponse> => {
+  try {
+    const response = await axios.post(`${API_URL}/gemini/continue`, {
+      message
+    }, {
+      headers: {
+        'session-id': sessionId
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error continuing conversation:', error);
     throw error;
   }
 };

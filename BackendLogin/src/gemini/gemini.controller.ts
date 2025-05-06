@@ -8,8 +8,10 @@ import {
   ValidationPipe,
   Logger,
   Headers,
-  Request
+  Request,
+  UseGuards
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-guard.auth';
 import { GeminiService } from './gemini.service';
 import { AnalyzeRequirementsDto } from './dto/analyze-requirements.dto';
 import { GenerateCodeDto } from './dto/generate-code.dto';
@@ -29,6 +31,7 @@ export class GeminiController {
     private readonly conversationService: ConversationService
   ) {}
 
+  @UseGuards(JwtAuthGuard) // Añadimos el guard de JWT
   @Post('analyze')
   async analyzeRequirements(
     @Body(new ValidationPipe({ transform: true })) dto: AnalyzeRequirementsDto,
@@ -36,16 +39,14 @@ export class GeminiController {
     @Request() req: any
   ): Promise<AnalysisResponse & { sessionId: string }> {
     try {
-      // Extraer el userId del token JWT
-      const userId = req.user?.userId;
-      console.log('Usuario autenticado:', userId); // Debug para verificar
+      // Extraer el userId del token JWT (será definido gracias al guard)
+      const userId = req.user.userId;
+      this.logger.log(`Usuario autenticado: ${userId}`);
       
       // Si no hay ID de sesión, crear uno nuevo
       const currentSessionId = sessionId || uuidv4();
       
       let fullPrompt = dto.requirements;
-      // Si no hay ID de sesión, crear uno nuevo
-      
       
       // Si la sesión ya existe, obtener el historial completo
       if (sessionId) {
@@ -76,18 +77,6 @@ export class GeminiController {
           return false;
         }
       });
-      if (userId) {
-        await this.conversationService.createOrUpdateConversation(
-          currentSessionId,
-          dto.requirements,
-          userId,
-          analysis.requirements,
-          analysis.diagrams
-        );
-        console.log(`Conversación guardada para usuario ${userId}`);
-      } else {
-        console.log('No hay usuario autenticado, no se guardará la conversación');
-      }
 
       // Actualizar el estado de la conversación
       await this.conversationService.updateConversation(
@@ -96,6 +85,8 @@ export class GeminiController {
         analysis.diagrams,
         userId
       );
+      
+      this.logger.log(`Conversación guardada para usuario ${userId}`);
       
       // Añadir el ID de sesión a la respuesta
       return {
@@ -114,6 +105,7 @@ export class GeminiController {
     }
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('generate-code')
   async generateCode(
     @Body(new ValidationPipe({ transform: true })) dto: GenerateCodeDto,
@@ -121,8 +113,9 @@ export class GeminiController {
     @Request() req: any
   ): Promise<GeneratedCode> {
     try {
-      this.logger.log('Iniciando generación de código...');
-      const userId = req.user?.userId;
+      const userId = req.user.userId;
+      this.logger.log(`Usuario autenticado para generar código: ${userId}`);
+      
       
       // Nos aseguramos de que las dependencias sean arrays (no undefined)
       const requirements = dto.requirements.map(req => ({
@@ -162,6 +155,7 @@ export class GeminiController {
   }
   
   // Nuevo endpoint para continuar la conversación
+  @UseGuards(JwtAuthGuard)
   @Post('continue')
   async continueConversation(
     @Body() dto: { message: string },
@@ -169,7 +163,8 @@ export class GeminiController {
     @Request() req: any
   ): Promise<AnalysisResponse & { sessionId: string }> {
     try {
-      const userId = req.user?.userId;
+      const userId = req.user.userId;
+      this.logger.log(`Usuario autenticado para continuar: ${userId}`);
       
       if (!sessionId) {
         throw new HttpException(

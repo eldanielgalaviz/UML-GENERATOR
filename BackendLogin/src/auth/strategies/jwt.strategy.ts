@@ -1,6 +1,7 @@
+// src/auth/strategies/jwt.strategy.ts
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -14,10 +15,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Asegúrate de que el ID del usuario esté en userId, como espera el resto del código
     return {
-      userId: payload.sub,
+      userId: payload.sub, // Aquí payload.sub contiene el ID del usuario
       email: payload.email,
-      usuario: payload.username,
+      username: payload.username,
       nombre: payload.nombre
     };
   }

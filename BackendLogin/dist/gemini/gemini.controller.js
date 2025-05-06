@@ -15,6 +15,7 @@ var GeminiController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GeminiController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_guard_auth_1 = require("../auth/guards/jwt-guard.auth");
 const gemini_service_1 = require("./gemini.service");
 const analyze_requirements_dto_1 = require("./dto/analyze-requirements.dto");
 const generate_code_dto_1 = require("./dto/generate-code.dto");
@@ -27,10 +28,9 @@ let GeminiController = GeminiController_1 = class GeminiController {
         this.logger = new common_1.Logger(GeminiController_1.name);
     }
     async analyzeRequirements(dto, sessionId, req) {
-        var _a;
         try {
-            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
-            console.log('Usuario autenticado:', userId);
+            const userId = req.user.userId;
+            this.logger.log(`Usuario autenticado: ${userId}`);
             const currentSessionId = sessionId || (0, uuid_1.v4)();
             let fullPrompt = dto.requirements;
             if (sessionId) {
@@ -56,14 +56,8 @@ let GeminiController = GeminiController_1 = class GeminiController {
                     return false;
                 }
             });
-            if (userId) {
-                await this.conversationService.createOrUpdateConversation(currentSessionId, dto.requirements, userId, analysis.requirements, analysis.diagrams);
-                console.log(`Conversación guardada para usuario ${userId}`);
-            }
-            else {
-                console.log('No hay usuario autenticado, no se guardará la conversación');
-            }
             await this.conversationService.updateConversation(currentSessionId, analysis.requirements, analysis.diagrams, userId);
+            this.logger.log(`Conversación guardada para usuario ${userId}`);
             return Object.assign(Object.assign({}, analysis), { sessionId: currentSessionId });
         }
         catch (error) {
@@ -75,10 +69,9 @@ let GeminiController = GeminiController_1 = class GeminiController {
         }
     }
     async generateCode(dto, sessionId, req) {
-        var _a;
         try {
-            this.logger.log('Iniciando generación de código...');
-            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+            const userId = req.user.userId;
+            this.logger.log(`Usuario autenticado para generar código: ${userId}`);
             const requirements = dto.requirements.map(req => (Object.assign(Object.assign({}, req), { dependencies: req.dependencies || [] })));
             if (sessionId) {
                 const existingConversation = await this.conversationService.getConversation(sessionId);
@@ -98,9 +91,9 @@ let GeminiController = GeminiController_1 = class GeminiController {
         }
     }
     async continueConversation(dto, sessionId, req) {
-        var _a;
         try {
-            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+            const userId = req.user.userId;
+            this.logger.log(`Usuario autenticado para continuar: ${userId}`);
             if (!sessionId) {
                 throw new common_1.HttpException('Se requiere session-id para continuar la conversación', common_1.HttpStatus.BAD_REQUEST);
             }
@@ -134,6 +127,7 @@ let GeminiController = GeminiController_1 = class GeminiController {
 };
 exports.GeminiController = GeminiController;
 __decorate([
+    (0, common_1.UseGuards)(jwt_guard_auth_1.JwtAuthGuard),
     (0, common_1.Post)('analyze'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __param(1, (0, common_1.Headers)('session-id')),
@@ -143,6 +137,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "analyzeRequirements", null);
 __decorate([
+    (0, common_1.UseGuards)(jwt_guard_auth_1.JwtAuthGuard),
     (0, common_1.Post)('generate-code'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __param(1, (0, common_1.Headers)('session-id')),
@@ -152,6 +147,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "generateCode", null);
 __decorate([
+    (0, common_1.UseGuards)(jwt_guard_auth_1.JwtAuthGuard),
     (0, common_1.Post)('continue'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Headers)('session-id')),

@@ -30,9 +30,19 @@ interface GeneratedCode {
 const API_URL = 'http://localhost:3005/api'; // Ajusta según tu configuración
 
 // Actualizar la función existente para que acepte sessionId
+// src/services/api.service.ts
 export const analyzeRequirements = async (requirements: string, sessionId?: string | null): Promise<AnalysisResponse> => {
   try {
+    const token = localStorage.getItem('token');
+    
     const headers: Record<string, string> = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('Enviando petición con token:', token.substring(0, 15) + '...');
+    } else {
+      console.warn('No hay token de autenticación disponible');
+    }
     
     if (sessionId) {
       headers['session-id'] = sessionId;

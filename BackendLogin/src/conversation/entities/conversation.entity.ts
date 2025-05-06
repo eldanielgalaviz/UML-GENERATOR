@@ -25,6 +25,9 @@ export class Conversation {
   @Column({ nullable: true })
   sessionId: string;
 
+  @Column({ type: 'json', nullable: true })
+  generatedCode: any; 
+
   @ManyToOne(() => User, user => user.conversations)
   user: User;
 

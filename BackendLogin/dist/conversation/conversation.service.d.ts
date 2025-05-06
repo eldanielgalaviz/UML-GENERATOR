@@ -7,6 +7,7 @@ export declare class ConversationService {
     private conversations;
     constructor(conversationRepository: Repository<Conversation>);
     createConversation(sessionId: string, originalRequirements: string, userId?: number): Promise<void>;
+    saveGeneratedCode(sessionId: string, userId: number, generatedCode: any): Promise<void>;
     getConversation(sessionId: string): Promise<any>;
     updateConversation(sessionId: string, requirements?: IEEE830Requirement[], diagrams?: MermaidDiagram[], userId?: number): Promise<void>;
     addMessage(sessionId: string, role: 'user' | 'system', content: string, userId?: number): Promise<void>;
@@ -14,4 +15,5 @@ export declare class ConversationService {
     getUserConversations(userId: number): Promise<Conversation[]>;
     private generateTitle;
     createOrUpdateConversation(sessionId: string, originalRequirements: string, userId: number, requirements?: any[], diagrams?: any[]): Promise<void>;
+    getConversationWithDetails(sessionId: string, userId: number): Promise<any>;
 }

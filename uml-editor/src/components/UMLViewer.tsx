@@ -17,6 +17,7 @@ interface UMLViewerProps {
   onAnalysisComplete?: (response: AnalysisResponse) => void;
   sessionId?: string | null;
   initialDiagrams?: any[];
+  initialRequirements?: any[];
 }
 
 const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
@@ -60,7 +61,8 @@ const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
 const UMLViewer: React.FC<UMLViewerProps> = ({ 
   onAnalysisComplete, 
   sessionId, 
-  initialDiagrams 
+  initialDiagrams,
+  initialRequirements
 }) => {
   const [requirements, setRequirements] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,14 +72,24 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
   const [selectedDiagram, setSelectedDiagram] = useState<DiagramType | null>(null);
   const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
   const [mermaidLoaded, setMermaidLoaded] = useState(false);
+  
+  // Actualización mejorada para inicializar correctamente con los datos iniciales
   useEffect(() => {
     if (initialDiagrams && initialDiagrams.length > 0) {
       setDiagrams(initialDiagrams);
       if (initialDiagrams.length > 0) {
         setSelectedDiagram(initialDiagrams[0]);
       }
+      
+      // Actualizar el estado de analysisResponse para que el botón se active
+      setAnalysisResponse({
+        requirements: initialRequirements || [],
+        diagrams: initialDiagrams
+      });
+      
+      console.log("Diagramas iniciales cargados:", initialDiagrams.length);
     }
-  }, [initialDiagrams]);
+  }, [initialDiagrams, initialRequirements]);
 
   useEffect(() => {
     const loadMermaid = async () => {
@@ -113,7 +125,6 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     loadMermaid();
   }, []);
 
-  // Modificar handleAnalyze para incluir sessionId
   const handleAnalyze = async () => {
     if (!requirements.trim()) {
       setError('Por favor ingresa los requerimientos');
@@ -124,12 +135,6 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
       setLoading(true);
       setError('');
       console.log('Enviando requerimientos al servidor...');
-
-      // Incluir el sessionId en el header si existe
-      const headers: Record<string, string> = {};
-      if (sessionId) {
-        headers['session-id'] = sessionId;
-      }
 
       const data = await analyzeRequirements(requirements.trim(), sessionId);
       console.log('Datos recibidos:', data);
@@ -147,13 +152,17 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         throw new Error('No se recibieron diagramas válidos');
       }
     } catch (err: any) {
-      // ... código existente
+      console.error('Error en handleAnalyze:', err);
+      setError(err.message || 'Error al analizar los requerimientos');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGenerateCode = async () => {
-    if (!analysisResponse?.diagrams || diagrams.length === 0) {
-      setError('Primero debes generar los diagramas');
+    // Verificamos si hay diagramas, pero cambiamos la condición para que sea más simple
+    if (diagrams.length === 0) {
+      setError('No hay diagramas disponibles para generar código');
       return;
     }
 
@@ -161,10 +170,17 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
       setGenerating(true);
       setError('');
       console.log('Generando código...');
+      
+      // Aseguramos que estamos usando los datos correctos
+      const diagramsToUse = analysisResponse?.diagrams || diagrams;
+      const requirementsToUse = analysisResponse?.requirements || [];
+      
+      console.log('Usando diagrams:', diagramsToUse.length);
+      console.log('Usando requirements:', requirementsToUse.length);
 
       const codeData = await generateCode(
-        analysisResponse.diagrams,
-        analysisResponse.requirements,
+        diagramsToUse,
+        requirementsToUse,
         sessionId
       );
       
@@ -172,7 +188,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
 
       // Actualizar el análisis con el código generado
       const updatedAnalysis = {
-        ...analysisResponse,
+        requirements: requirementsToUse,
+        diagrams: diagramsToUse,
         generatedCode: codeData
       };
 
@@ -217,7 +234,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
 
         <button
           onClick={handleGenerateCode}
-          disabled={generating || !analysisResponse?.diagrams || diagrams.length === 0}
+          // Modificada la condición para que funcione cuando hay diagramas cargados
+          disabled={generating || diagrams.length === 0}
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
         >
           {generating ? 'Generando código...' : 'Generar Código'}

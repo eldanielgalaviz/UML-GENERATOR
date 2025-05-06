@@ -60,6 +60,26 @@ let ConversationService = ConversationService_1 = class ConversationService {
             }
         }
     }
+    async saveGeneratedCode(sessionId, userId, generatedCode) {
+        try {
+            const conversation = await this.conversationRepository.findOne({
+                where: { sessionId, userId }
+            });
+            if (!conversation) {
+                this.logger.warn(`No se encontró conversación ${sessionId} para guardar código`);
+                return;
+            }
+            await this.conversationRepository.update({ id: conversation.id }, {
+                generatedCode,
+                updatedAt: new Date()
+            });
+            this.logger.log(`Código generado guardado para conversación ${sessionId}`);
+        }
+        catch (error) {
+            this.logger.error(`Error al guardar código generado: ${error.message}`);
+            throw error;
+        }
+    }
     async getConversation(sessionId) {
         const memoryConversation = this.conversations.get(sessionId);
         if (memoryConversation) {
@@ -207,6 +227,41 @@ let ConversationService = ConversationService_1 = class ConversationService {
         }
         catch (error) {
             this.logger.error(`Error guardando conversación: ${error.message}`);
+            throw error;
+        }
+    }
+    async getConversationWithDetails(sessionId, userId) {
+        var _a;
+        try {
+            const conversation = await this.conversationRepository.findOne({
+                where: {
+                    sessionId,
+                    userId
+                }
+            });
+            if (!conversation) {
+                this.logger.warn(`Conversación ${sessionId} no encontrada para usuario ${userId}`);
+                return null;
+            }
+            const response = {
+                sessionId,
+                requirements: conversation.requirements || [],
+                diagrams: conversation.diagrams || [],
+                generatedCode: conversation.generatedCode || null,
+                originalRequirements: conversation.originalRequirements,
+                messages: conversation.messages || []
+            };
+            this.logger.log(`Recuperados detalles de conversación ${sessionId} con ${((_a = response.diagrams) === null || _a === void 0 ? void 0 : _a.length) || 0} diagramas`);
+            this.conversations.set(sessionId, {
+                originalRequirements: conversation.originalRequirements,
+                requirements: conversation.requirements || [],
+                diagrams: conversation.diagrams || [],
+                messages: conversation.messages || []
+            });
+            return response;
+        }
+        catch (error) {
+            this.logger.error(`Error al obtener detalles de conversación ${sessionId}: ${error.message}`);
             throw error;
         }
     }

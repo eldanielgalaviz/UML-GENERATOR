@@ -73,3 +73,22 @@ export const continueConversation = async (sessionId: string, message: string): 
     throw error;
   }
 };
+export const fetchConversationDetails = async (sessionId: string): Promise<any> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+    
+    const response = await axios.get(`${API_URL}/conversations/${sessionId}/details`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener detalles de conversación:', error);
+    throw error;
+  }
+};

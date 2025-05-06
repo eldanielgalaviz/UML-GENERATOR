@@ -105,54 +105,58 @@ export class GeminiController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post('generate-code')
-  async generateCode(
-    @Body(new ValidationPipe({ transform: true })) dto: GenerateCodeDto,
-    @Headers('session-id') sessionId: string,
-    @Request() req: any
-  ): Promise<GeneratedCode> {
-    try {
-      const userId = req.user.userId;
-      this.logger.log(`Usuario autenticado para generar código: ${userId}`);
-      
-      
-      // Nos aseguramos de que las dependencias sean arrays (no undefined)
-      const requirements = dto.requirements.map(req => ({
-        ...req,
-        dependencies: req.dependencies || []
-      }));
-      
-      // Si hay una sesión, actualizar diagramas
-      if (sessionId) {
-        const existingConversation = await this.conversationService.getConversation(sessionId);
-        if (existingConversation) {
-          await this.conversationService.updateConversation(
-            sessionId,
-            requirements,
-            dto.diagrams,
-            userId
-          );
-        }
+// src/gemini/gemini.controller.ts
+@Post('generate-code')
+async generateCode(
+  @Body(new ValidationPipe({ transform: true })) dto: GenerateCodeDto,
+  @Headers('session-id') sessionId: string,
+  @Request() req: any
+): Promise<GeneratedCode> {
+  try {
+    // Aquí está fallando - obtener userId solo si existe req.user
+    const userId = req.user?.userId;
+    this.logger.log(`Usuario autenticado para generar código: ${userId || 'No autenticado'}`);
+    
+    // Si ya hay código generado para esta sesión, recuperarlo
+    if (sessionId) {
+      const conversation = await this.conversationService.getConversationWithDetails(sessionId, userId);
+      if (conversation && conversation.generatedCode) {
+        this.logger.log(`Recuperando código ya generado para sesión ${sessionId}`);
+        return conversation.generatedCode;
       }
-      
-      const generatedCode = await this.geminiService.generateCode(
-        dto.diagrams,
-        requirements
-      );
-      
-      return generatedCode;
-    } catch (error) {
-      this.logger.error('Error in generateCode:', error);
-      throw new HttpException(
-        {
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-          error: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
     }
+    
+    // Si no hay código generado, generarlo
+    this.logger.log('Iniciando generación de código...');
+    
+    // Nos aseguramos de que las dependencias sean arrays (no undefined)
+    const requirements = dto.requirements.map(req => ({
+      ...req,
+      dependencies: req.dependencies || []
+    }));
+    
+    const generatedCode = await this.geminiService.generateCode(
+      dto.diagrams,
+      requirements
+    );
+    
+    // Guardar el código generado
+    if (sessionId && userId) {
+      await this.conversationService.saveGeneratedCode(sessionId, userId, generatedCode);
+    }
+    
+    return generatedCode;
+  } catch (error) {
+    this.logger.error('Error in generateCode:', error);
+    throw new HttpException(
+      {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
   }
+}
   
   // Nuevo endpoint para continuar la conversación
   @UseGuards(JwtAuthGuard)

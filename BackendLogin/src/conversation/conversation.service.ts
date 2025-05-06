@@ -60,6 +60,38 @@ export class ConversationService {
     }
   }
 
+  // src/conversation/conversation.service.ts
+async saveGeneratedCode(
+  sessionId: string,
+  userId: number,
+  generatedCode: any
+): Promise<void> {
+  try {
+    const conversation = await this.conversationRepository.findOne({
+      where: { sessionId, userId }
+    });
+    
+    if (!conversation) {
+      this.logger.warn(`No se encontró conversación ${sessionId} para guardar código`);
+      return;
+    }
+    
+    // Actualizar con el código generado
+    await this.conversationRepository.update(
+      { id: conversation.id },
+      { 
+        generatedCode,
+        updatedAt: new Date()
+      }
+    );
+    
+    this.logger.log(`Código generado guardado para conversación ${sessionId}`);
+  } catch (error) {
+    this.logger.error(`Error al guardar código generado: ${error.message}`);
+    throw error;
+  }
+}
+
   // Obtiene una conversación
   async getConversation(sessionId: string): Promise<any> {
     // Primero buscar en memoria
@@ -265,6 +297,49 @@ async createOrUpdateConversation(
     });
   } catch (error) {
     this.logger.error(`Error guardando conversación: ${error.message}`);
+    throw error;
+  }
+}
+
+// src/conversation/conversation.service.ts
+async getConversationWithDetails(sessionId: string, userId: number): Promise<any> {
+  try {
+    // Buscar la conversación en la base de datos
+    const conversation = await this.conversationRepository.findOne({
+      where: { 
+        sessionId,
+        userId
+      }
+    });
+    
+    if (!conversation) {
+      this.logger.warn(`Conversación ${sessionId} no encontrada para usuario ${userId}`);
+      return null;
+    }
+    
+    // Estructurar la respuesta similar a lo que devuelve el análisis
+    const response = {
+      sessionId,
+      requirements: conversation.requirements || [],
+      diagrams: conversation.diagrams || [],
+      generatedCode: conversation.generatedCode || null,
+      originalRequirements: conversation.originalRequirements,
+      messages: conversation.messages || []
+    };
+    
+    this.logger.log(`Recuperados detalles de conversación ${sessionId} con ${response.diagrams?.length || 0} diagramas`);
+    
+    // También actualizar el caché en memoria
+    this.conversations.set(sessionId, {
+      originalRequirements: conversation.originalRequirements,
+      requirements: conversation.requirements || [],
+      diagrams: conversation.diagrams || [],
+      messages: conversation.messages || []
+    });
+    
+    return response;
+  } catch (error) {
+    this.logger.error(`Error al obtener detalles de conversación ${sessionId}: ${error.message}`);
     throw error;
   }
 }

@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import UMLViewer from "./UMLViewer";
 import CodeViewer from "./CodeViewer";
 import ConversationHistory from "./ConversationHistory";
-import { continueConversation, fetchConversationById } from "../services/conversations.service";
+import { continueConversation, fetchConversationById, fetchConversationDetails } from "../services/conversations.service";
 
 interface AnalysisResponse {
   requirements: any[];
@@ -36,24 +36,37 @@ export default function ChatInterface() {
   };
 
   // Cargar una conversación existente
-  const handleSelectConversation = async (sessionId: string) => {
-    try {
-      setIsLoading(true);
-      const conversation = await fetchConversationById(sessionId);
-      if (conversation) {
-        setAnalysisResponse({
-          requirements: conversation.requirements || [],
-          diagrams: conversation.diagrams || [],
-          sessionId: sessionId
-        });
-        setCurrentSessionId(sessionId);
+// src/components/chat-interface.tsx
+// Actualizar función handleSelectConversation
+const handleSelectConversation = async (sessionId: string) => {
+  try {
+    setIsLoading(true);
+    
+    // Obtener todos los detalles de la conversación
+    const conversation = await fetchConversationDetails(sessionId);
+    
+    if (conversation) {
+      setAnalysisResponse({
+        requirements: conversation.requirements || [],
+        diagrams: conversation.diagrams || [],
+        generatedCode: conversation.generatedCode,
+        sessionId: conversation.sessionId
+      });
+      
+      setCurrentSessionId(conversation.sessionId);
+      
+      // Si hay código generado, permitir cambiar a pestaña de código
+      if (conversation.generatedCode) {
+        // Opcional: cambiar automáticamente a la pestaña de código
+        // setActiveTab("code");
       }
-    } catch (error) {
-      console.error("Error al cargar la conversación:", error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error al cargar la conversación:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Enviar un mensaje para continuar la conversación
   const handleContinueConversation = async () => {
@@ -142,19 +155,20 @@ export default function ChatInterface() {
               </div>
 
               <div>
-                <div className="mt-6">
-                  {activeTab === "diagrams" ? (
-                    <UMLViewer
-                      onAnalysisComplete={handleAnalysisComplete}
-                      sessionId={currentSessionId}
-                      initialDiagrams={analysisResponse?.diagrams}
-                    />
-                  ) : (
-                    <CodeViewer
-                      generatedCode={analysisResponse?.generatedCode}
-                    />
-                  )}
-                </div>
+              <div className="mt-6">
+      {activeTab === "diagrams" ? (
+        <UMLViewer
+          onAnalysisComplete={handleAnalysisComplete}
+          sessionId={currentSessionId}
+          initialDiagrams={analysisResponse?.diagrams}
+          initialRequirements={analysisResponse?.requirements}
+        />
+      ) : (
+        <CodeViewer
+          generatedCode={analysisResponse?.generatedCode}
+        />
+      )}
+    </div>
 
                 {/* Área para continuar la conversación */}
                 {currentSessionId && (

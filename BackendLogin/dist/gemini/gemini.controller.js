@@ -69,17 +69,23 @@ let GeminiController = GeminiController_1 = class GeminiController {
         }
     }
     async generateCode(dto, sessionId, req) {
+        var _a;
         try {
-            const userId = req.user.userId;
-            this.logger.log(`Usuario autenticado para generar código: ${userId}`);
-            const requirements = dto.requirements.map(req => (Object.assign(Object.assign({}, req), { dependencies: req.dependencies || [] })));
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+            this.logger.log(`Usuario autenticado para generar código: ${userId || 'No autenticado'}`);
             if (sessionId) {
-                const existingConversation = await this.conversationService.getConversation(sessionId);
-                if (existingConversation) {
-                    await this.conversationService.updateConversation(sessionId, requirements, dto.diagrams, userId);
+                const conversation = await this.conversationService.getConversationWithDetails(sessionId, userId);
+                if (conversation && conversation.generatedCode) {
+                    this.logger.log(`Recuperando código ya generado para sesión ${sessionId}`);
+                    return conversation.generatedCode;
                 }
             }
+            this.logger.log('Iniciando generación de código...');
+            const requirements = dto.requirements.map(req => (Object.assign(Object.assign({}, req), { dependencies: req.dependencies || [] })));
             const generatedCode = await this.geminiService.generateCode(dto.diagrams, requirements);
+            if (sessionId && userId) {
+                await this.conversationService.saveGeneratedCode(sessionId, userId, generatedCode);
+            }
             return generatedCode;
         }
         catch (error) {
@@ -137,7 +143,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], GeminiController.prototype, "analyzeRequirements", null);
 __decorate([
-    (0, common_1.UseGuards)(jwt_guard_auth_1.JwtAuthGuard),
     (0, common_1.Post)('generate-code'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __param(1, (0, common_1.Headers)('session-id')),

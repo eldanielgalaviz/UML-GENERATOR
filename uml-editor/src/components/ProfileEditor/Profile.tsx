@@ -1,5 +1,5 @@
-import { useState, FormEvent, useEffect } from "react";
-import { Menu, Edit } from "lucide-react";
+import { useState, FormEvent, useEffect, useRef } from "react";
+import { Menu, Edit, MoreHorizontal, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "./LoginStyle.css"; 
 
@@ -29,6 +29,26 @@ const Profile = ({ onLogout }: ProfileProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [showSuccessMessage, setShowSuccessMessage] = useState("");
+  
+  // Variables para el menú de usuario
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar el menú de usuario cuando se hace clic fuera de él
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+        setShowMoreInfo(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Cargar datos del usuario directamente del localStorage
   useEffect(() => {
@@ -142,6 +162,12 @@ const Profile = ({ onLogout }: ProfileProps) => {
   const goToChat = () => {
     navigate('/');
   };
+  
+  // Función para ir a la página de configuración
+  const goToConfiguration = () => {
+    // Ya estamos en la página de configuración, así que solo cerramos el menú
+    setShowUserMenu(false);
+  };
 
   // Formatear fecha para mostrar (si es necesario)
   const formatDate = (dateString: string | undefined) => {
@@ -190,24 +216,84 @@ const Profile = ({ onLogout }: ProfileProps) => {
               </button>
             </nav>
             
-            {/* Información del usuario */}
+            {/* Información del usuario - Mismo formato que en ChatInterface */}
             {userData && (
-              <div className="mt-auto p-4 border-t border-gray-700">
-                <div className="flex items-center gap-3">
+              <div className="mt-auto p-4 border-t border-gray-700 relative" ref={userMenuRef}>
+                {/* Botón para mostrar/ocultar menú de usuario */}
+                <div 
+                  className="flex items-center gap-3 cursor-pointer"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                >
                   <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-sm">
-                    {userData.nombre?.charAt(0) || userData.username?.charAt(0) || "U"}
+                    {userData.nombre?.charAt(0) || userData.username?.charAt(0)}
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-sm">{userData.nombre || userData.username}</span>
                     <span className="text-xs text-gray-400">{userData.email}</span>
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="mt-3 w-full bg-red-500 hover:bg-red-600 py-1 px-3 rounded text-sm transition-colors"
-                >
-                  Cerrar Sesión
-                </button>
+                
+                {/* Menú desplegable de opciones - Versión compacta */}
+                {showUserMenu && (
+                  <div className="absolute bottom-full left-0 mb-2 w-full border border-gray-700 rounded-lg overflow-hidden bg-[#202123] shadow-lg z-20">
+                    {/* Opción de Configuración */}
+                    <button 
+                      onClick={goToConfiguration}
+                      className="w-full py-2 px-3 hover:bg-gray-700 transition-colors flex items-center justify-between text-left text-xs"
+                    >
+                      <span>Configuración</span>
+                      <span className="text-gray-400"></span>
+                    </button>
+                    
+                    {/* Opción de Más información */}
+                    <button 
+                      className="w-full py-2 px-3 border-t border-gray-700 hover:bg-gray-700 transition-colors text-left flex items-center justify-between text-xs"
+                      onClick={() => setShowMoreInfo(!showMoreInfo)}
+                    >
+                      <span>Más información</span>
+                      <span className="text-gray-400">→</span>
+                    </button>
+                    
+                    {/* Opciones dentro de Más información */}
+                    {showMoreInfo && (
+                      <>
+                        {/* Opción de Acerca de */}
+                        <button 
+                          className="w-full py-2 px-3 border-t border-gray-700 hover:bg-gray-700 transition-colors text-left pl-6 flex items-center justify-between text-xs"
+                          onClick={() => window.open('https://gemini.google/advanced/?hl=es', '_blank')}
+                        >
+                          <span>Acerca de Gemini</span>
+                          <span className="text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </span>
+                        </button>
+                        
+                        {/* Opción de Política de privacidad */}
+                        <button 
+                          className="w-full py-2 px-3 border-t border-gray-700 hover:bg-gray-700 transition-colors text-left pl-6 flex items-center justify-between text-xs"
+                          onClick={() => window.open('https://www.gemini.com/es-LA/legal/privacy-policy', '_blank')}
+                        >
+                          <span>Política de privacidad</span>
+                          <span className="text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </span>
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Opción de Cerrar sesión */}
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full py-2 px-3 border-t border-gray-700 hover:bg-gray-700 transition-colors text-left text-red-500 text-xs"
+                    >
+                      <span>Cerrar sesión</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -252,148 +338,149 @@ const Profile = ({ onLogout }: ProfileProps) => {
               )}
 
               {userData && (
-                <form onSubmit={handleSubmit} className="bg-[#3a3b4a] p-6 rounded-lg shadow-lg space-y-6">
+                <form onSubmit={handleSubmit} className="bg-[#3a3b4a] p-6 rounded-lg shadow-lg space-y-6 border border-white/20 bg-gradient-to-b from-white/5 to-transparent">
                   {/* Grid de información personal - 3 columnas */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Usuario */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Usuario</label>
-                      <input 
-                        type="text" 
-                        value={userData.username}
-                        onChange={handleUsernameChange}
-                        className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium mb-4 text-blue-300">Información Personal</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Usuario */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Usuario</label>
+                        <input 
+                          type="text" 
+                          value={userData.username}
+                          onChange={handleUsernameChange}
+                          className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      {/* Correo Electrónico - No modificable */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Correo Electrónico</label>
+                        <input 
+                          type="email" 
+                          value={userData.email}
+                          disabled
+                          className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
+                        />
+                      </div>
+                      
+                      {/* Nombre(s) */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Nombre(s)</label>
+                        <input 
+                          type="text" 
+                          value={userData.nombre}
+                          disabled
+                          className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
+                        />
+                      </div>
                     
-                    {/* Correo Electrónico - No modificable */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Correo Electrónico</label>
-                      <input 
-                        type="email" 
-                        value={userData.email}
-                        disabled
-                        className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
-                      />
-                    </div>
-                    
-                    {/* Nombre(s) */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Nombre(s)</label>
-                      <input 
-                        type="text" 
-                        value={userData.nombre}
-                        disabled
-                        className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Segunda fila - 3 columnas */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Apellido Paterno */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Apellido Paterno</label>
-                      <input 
-                        type="text" 
-                        value={userData.apellidoPaterno}
-                        disabled
-                        className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
-                      />
-                    </div>
-                    
-                    {/* Apellido Materno */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Apellido Materno</label>
-                      <input 
-                        type="text" 
-                        value={userData.apellidoMaterno}
-                        disabled
-                        className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
-                      />
-                    </div>
-                    
-                    {/* Fecha de Nacimiento */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Fecha de Nacimiento</label>
-                      <input 
-                        type="date" 
-                        value={formatDate(userData.fechaNacimiento)}
-                        disabled
-                        className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
-                      />
+                      {/* Apellido Paterno */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Apellido Paterno</label>
+                        <input 
+                          type="text" 
+                          value={userData.apellidoPaterno}
+                          disabled
+                          className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
+                        />
+                      </div>
+                      
+                      {/* Apellido Materno */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Apellido Materno</label>
+                        <input 
+                          type="text" 
+                          value={userData.apellidoMaterno}
+                          disabled
+                          className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
+                        />
+                      </div>
+                      
+                      {/* Fecha de Nacimiento */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Fecha de Nacimiento</label>
+                        <input 
+                          type="date" 
+                          value={formatDate(userData.fechaNacimiento)}
+                          disabled
+                          className="w-full px-4 py-2 bg-[#2c2d3a] border border-gray-700 rounded-md cursor-not-allowed"
+                        />
+                      </div>
                     </div>
                   </div>
                   
                   {/* Sección de contraseñas - 2 columnas */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t border-gray-700">
-                    <h3 className="col-span-full text-lg font-medium mb-2">Cambiar Contraseña</h3>
-                  
-                    {/* Nueva Contraseña */}
-                    <div className="relative">
-                      <label className="block text-sm font-medium mb-1">Nueva Contraseña</label>
+                  <div>
+                    <h3 className="text-lg font-medium mb-4 text-blue-300">Cambiar Contraseña</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Nueva Contraseña */}
                       <div className="relative">
-                        <input 
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Dejar en blanco si no desea cambiarla"
-                          className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                        />
-                        <button 
-                          type="button"
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          onClick={togglePasswordVisibility}
-                        >
-                          {showPassword ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          )}
-                        </button>
+                        <label className="block text-sm font-medium mb-1">Nueva Contraseña</label>
+                        <div className="relative">
+                          <input 
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Dejar en blanco si no desea cambiarla"
+                            className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                          />
+                          <button 
+                            type="button"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                            onClick={togglePasswordVisibility}
+                          >
+                            {showPassword ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* Confirmar Nueva Contraseña */}
-                    <div className="relative">
-                      <label className="block text-sm font-medium mb-1">Confirmar Nueva Contraseña</label>
+                      
+                      {/* Confirmar Nueva Contraseña */}
                       <div className="relative">
-                        <input 
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Vuelve a ingresar la contraseña"
-                          className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                        />
-                        <button 
-                          type="button"
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          onClick={toggleConfirmPasswordVisibility}
-                        >
-                          {showConfirmPassword ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          )}
-                        </button>
+                        <label className="block text-sm font-medium mb-1">Confirmar Nueva Contraseña</label>
+                        <div className="relative">
+                          <input 
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Vuelve a ingresar la contraseña"
+                            className="w-full px-4 py-2 bg-[#444653] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                          />
+                          <button 
+                            type="button"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                            onClick={toggleConfirmPasswordVisibility}
+                          >
+                            {showConfirmPassword ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-4 flex justify-center">
+                  <div className="pt-6 flex justify-center">
                     <button 
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-8 rounded-md transition-colors"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-10 rounded-md transition-colors shadow-lg"
                     >
                       Guardar Cambios
                     </button>

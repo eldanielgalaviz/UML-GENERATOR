@@ -1,6 +1,8 @@
-import { useState, FormEvent, useEffect } from "react";
+import React, { useState, FormEvent, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import "./LoginStyle.css"; 
 
+// Definir tipos...
 interface FormInput extends HTMLInputElement {
   id: string;
   value: string;
@@ -19,6 +21,7 @@ interface User {
   apellidoMaterno: string; 
   fechaNacimiento: string;
 }
+
 interface LoginAccessProps {
   onLoginSuccess?: (user: User) => void;
 }
@@ -26,6 +29,7 @@ interface LoginAccessProps {
 const API_URL = "http://localhost:3005";
 
 const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
+  // Estados del componente...
   const [action, setAction] = useState<"Iniciar Sesión" | "Registrarse">("Iniciar Sesión");
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,6 +40,12 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
+  // Añadimos un nuevo estado para controlar la animación
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Funciones del componente...
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
 
   // Comprobar si hay un usuario ya logueado al cargar el componente
   useEffect(() => {
@@ -55,14 +65,7 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
     }
   }, [onLoginSuccess]);
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
-
+  // Función para manejar el olvido de contraseña
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
     try {
@@ -87,6 +90,7 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
     }
   };
 
+  // Función para cerrar sesión
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -95,6 +99,26 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
     setTimeout(() => setShowSuccessMessage(""), 3000);
   };
 
+  // Función modificada para cambiar entre formularios con transición
+  const handleFormSwitch = (newAction: "Iniciar Sesión" | "Registrarse") => {
+    if (action !== newAction) {
+      setIsTransitioning(true);
+      
+      // Esperamos a que la animación de salida termine antes de cambiar el estado
+      setTimeout(() => {
+        setAction(newAction);
+        // Cuando cambiamos el estado, la animación de entrada comenzará
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 50);
+      }, 300); // Este tiempo debe coincidir con la duración de la animación en CSS
+    } else {
+      // Si es la misma acción, realizamos el submit
+      handleSubmit(newAction);
+    }
+  };
+
+  // Función para manejar el envío de formularios
   const handleSubmit = async (submitAction: "Iniciar Sesión" | "Registrarse") => {
     if (submitAction === action) {
       try {
@@ -190,297 +214,302 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
       }
     } else {
       setFormErrors([]);
-      setAction(submitAction);
+      handleFormSwitch(submitAction);
       setShowSuccessMessage("");
     }
   };
 
-  const eyeOpen = (
-    <svg 
-      className="eye-icon" 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="20" 
-      height="20" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="#797979" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-      <circle cx="12" cy="12" r="3"></circle>
-    </svg>
-  );
-
-  const eyeClosed = (
-    <svg 
-      className="eye-icon" 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="20" 
-      height="20" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="#797979" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-      <line x1="1" y1="1" x2="23" y2="23"></line>
-    </svg>
-  );
-
   return (
-    <div className="container">
-      <div className="header">
-        <div className="text">
-          {loggedInUser && !onLoginSuccess ? `Bienvenido, ${loggedInUser}` : action}
+    <div className="login-container">
+      {/* Fondo con elementos geométricos */}
+      <div className="login-background">
+        <div className="geometric-shapes">
+          <div className="shape shape-1"></div>
+          <div className="shape shape-2"></div>
+          <div className="shape shape-3"></div>
+          <div className="shape shape-4"></div>
+          <div className="shape shape-5"></div>
         </div>
-        <div className="underline"></div>
       </div>
 
-      {showSuccessMessage && (
-        <div className="error-messages" style={{ background: '#e8f5e9', border: '1px solid #a5d6a7' }}>
-          <div className="error-message" style={{ color: '#2e7d32' }}>
+      {/* Contenedor principal */}
+      <div className="login-form-container">
+        <div className="login-form-header">
+          <h1>{loggedInUser && !onLoginSuccess ? `Bienvenido, ${loggedInUser}` : action}</h1>
+          <div className="header-underline"></div>
+        </div>
+
+        {/* Mensajes de éxito o error */}
+        {showSuccessMessage && (
+          <div className="success-message">
             {showSuccessMessage}
           </div>
-        </div>
-      )}
-      
-      {formErrors.length > 0 && (
-        <div className="error-messages">
-          {formErrors.map((error, index) => (
-            <div key={index} className="error-message">{error}</div>
-          ))}
-        </div>
-      )}
+        )}
+        
+        {formErrors.length > 0 && (
+          <div className="error-container">
+            {formErrors.map((error, index) => (
+              <div key={index} className="error-message">{error}</div>
+            ))}
+          </div>
+        )}
 
-      {/* Si el usuario está logueado y no hay callback (componente usado independientemente) */}
-      {loggedInUser && !onLoginSuccess ? (
-        <div className="logged-in-container">
-          <p>Has iniciado sesión correctamente. ¿Qué deseas hacer?</p>
-          <div className="sumbit-container">
-            <div 
-              className="submit"
-              onClick={handleLogout}
-            >
-              Cerrar Sesión
-            </div>
-            <div 
-              className="submit"
-              onClick={() => {
-                // Redirigir a la página principal
-                window.location.href = '/dashboard';
-              }}
-            >
-              Ir a la aplicación
+        {/* Contenido condicional basado en el estado del usuario */}
+        {loggedInUser && !onLoginSuccess ? (
+          <div className="logged-in-options">
+            <p>Has iniciado sesión correctamente. ¿Qué deseas hacer?</p>
+            <div className="action-buttons">
+              <button 
+                className="action-button logout"
+                onClick={handleLogout}
+              >
+                Cerrar Sesión
+              </button>
+              <button 
+                className="action-button go-app"
+                onClick={() => window.location.href = '/dashboard'}
+              >
+                Ir a la aplicación
+              </button>
             </div>
           </div>
-        </div>
-      ) : isResettingPassword ? (
-        <div className="inputs">
-          <div className="input">
-            <img src="" alt="" className="usericon" />
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-            />
-          </div>
-          <div className="sumbit-container">
-            <div 
-              className="submit"
-              onClick={handleForgotPassword}
-            >
-              Enviar enlace
+        ) : isResettingPassword ? (
+          <div className="password-reset-form">
+            <div className="input-group">
+              <label>Correo electrónico</label>
+              <div className="input-wrapper">
+                <input
+                  type="email"
+                  placeholder="Ingresa tu correo electrónico"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
             </div>
-            <div 
-              className="submit gray"
-              onClick={() => setIsResettingPassword(false)}
-            >
-              Volver
+            <div className="action-buttons">
+              <button 
+                className="action-button send"
+                onClick={handleForgotPassword}
+              >
+                Enviar enlace
+              </button>
+              <button 
+                className="action-button cancel"
+                onClick={() => setIsResettingPassword(false)}
+              >
+                Volver
+              </button>
             </div>
           </div>
-        </div>
-      ) : (
-        <>
-          {action === "Iniciar Sesión" ? (
-            <>
-              <div className="register-form-container">
-                <div className="register-form-row">
-                  <div className="register-form-column" style={{ maxWidth: "500px", margin: "0 auto" }}>
-                    <div className="input">
-                      <img src="" alt="" className="usericon" />
-                      <input 
-                        type="text" 
-                        placeholder="Usuario o Correo" 
-                        name="username" 
-                        id="username" 
+        ) : (
+          <>
+            {/* Formularios con clases de transición */}
+            <div className={`form-container ${isTransitioning ? 'fade-out' : 'fade-in'}`}>
+              {action === "Iniciar Sesión" ? (
+                <form className="login-form">
+                  <div className="input-group">
+                    <label>Usuario</label>
+                    <div className="input-wrapper">
+                      <input
+                        type="text"
+                        placeholder="Ingresa tu usuario o correo"
+                        id="username"
                         required
                       />
                     </div>
-                    <div className="input">
-                      <img src="" alt="" className="passwordicon" />
-                      <input 
+                  </div>
+                  <div className="input-group">
+                    <label>Contraseña</label>
+                    <div className="input-wrapper password">
+                      <input
                         type={showPassword ? "text" : "password"}
-                        placeholder="Contraseña" 
-                        name="password" 
-                        id="password" 
-                        pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}"
-                        title="Debe contener al menos 6 caracteres, una mayúscula, una minúscula y un número"
-                        onFocus={() => setShowPasswordHint(true)}
-                        onBlur={() => setShowPasswordHint(false)}
+                        placeholder="Ingresa tu contraseña"
+                        id="password"
                         required
                       />
-                      <div className="password-toggle" onClick={togglePasswordVisibility}>
-                        {showPassword ? eyeClosed : eyeOpen}
-                      </div>
-                      {showPasswordHint && (
-                        <div className="password-tooltip">
-                          Mínimo 6 caracteres, una mayúscula, una minúscula y un número
+                      <button
+                        type="button"
+                        className="password-toggle"
+                        onClick={togglePasswordVisibility}
+                      >
+                        {showPassword ? <EyeOff className="icon" /> : <Eye className="icon" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="forgot-password">
+                    <span onClick={() => setIsResettingPassword(true)}>
+                      ¿Olvidaste tu contraseña?
+                    </span>
+                  </div>
+                </form>
+              ) : (
+                /* Formulario de registro */
+                <form className="register-form">
+                  <div className="register-columns">
+                    <div className="register-column">
+                      <div className="input-group">
+                        <label>Usuario</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="text"
+                            placeholder="Nombre de usuario"
+                            id="username"
+                            required
+                          />
                         </div>
-                      )}
-                    </div>
-                    <div className="forgot-password" style={{ textAlign: "right", width: "100%", marginTop: "10px" }}>
-                      ¿Olvidaste tu contraseña?{" "}
-                      <span onClick={() => setIsResettingPassword(true)}>
-                        ¡Click Aquí!
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="register-form-container">
-              <div className="register-form-row">
-                <div className="register-form-column">
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="text" 
-                      placeholder="Usuario" 
-                      name="username" 
-                      id="username" 
-                      required
-                    />
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="text" 
-                      placeholder="Nombre(s)" 
-                      name="nombre" 
-                      id="nombre" 
-                      required
-                    />
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="text" 
-                      placeholder="Apellido Paterno" 
-                      name="apellidoPaterno" 
-                      id="apellidoPaterno" 
-                      required
-                    />
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="text" 
-                      placeholder="Apellido Materno" 
-                      name="apellidoMaterno" 
-                      id="apellidoMaterno" 
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="register-form-column">
-                <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="email" 
-                      placeholder="Correo" 
-                      name="email" 
-                      id="email" 
-                      required
-                    />
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="usericon" />
-                    <input 
-                      type="date" 
-                      name="fechaNacimiento" 
-                      id="fechaNacimiento"
-                      required
-                    />
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="passwordicon" />
-                    <input 
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Contraseña" 
-                      name="password" 
-                      id="password" 
-                      pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}"
-                      title="Debe contener al menos 6 caracteres, una mayúscula, una minúscula y un número"
-                      onFocus={() => setShowPasswordHint(true)}
-                      onBlur={() => setShowPasswordHint(false)}
-                      required
-                    />
-                    <div className="password-toggle" onClick={togglePasswordVisibility}>
-                      {showPassword ? eyeClosed : eyeOpen}
-                    </div>
-                    {showPasswordHint && (
-                      <div className="password-tooltip">
-                        Mínimo 6 caracteres, una mayúscula, una minúscula y un número
                       </div>
-                    )}
-                  </div>
-                  <div className="input">
-                    <img src="" alt="" className="passwordicon" />
-                    <input 
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirmar Contraseña" 
-                      name="confirmPassword" 
-                      id="confirmPassword" 
-                      onFocus={() => setShowConfirmPasswordHint(true)}
-                      onBlur={() => setShowConfirmPasswordHint(false)}
-                      required
-                    />
-                    <div className="password-toggle" onClick={toggleConfirmPasswordVisibility}>
-                      {showConfirmPassword ? eyeClosed : eyeOpen}
-                    </div>
-                    {showConfirmPasswordHint && (
-                      <div className="password-tooltip">
-                        Debe ser idéntica a la contraseña ingresada
+                      <div className="input-group">
+                        <label>Nombre(s)</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="text"
+                            placeholder="Tu nombre"
+                            id="nombre"
+                            required
+                          />
+                        </div>
                       </div>
-                    )}
+                      <div className="input-group">
+                        <label>Apellido Paterno</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="text"
+                            placeholder="Tu apellido paterno"
+                            id="apellidoPaterno"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="register-column">
+                      <div className="input-group">
+                        <label>Correo</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="email"
+                            placeholder="Tu correo electrónico"
+                            id="email"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="input-group">
+                        <label>Apellido Materno</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="text"
+                            placeholder="Tu apellido materno"
+                            id="apellidoMaterno"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="input-group">
+                        <label>Fecha de Nacimiento</label>
+                        <div className="input-wrapper">
+                          <input
+                            type="date"
+                            id="fechaNacimiento"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                
+                  <div className="register-columns">
+                    <div className="register-column">
+                      <div className="input-group">
+                        <label>Contraseña</label>
+                        <div className="input-wrapper password">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Crea una contraseña"
+                            id="password"
+                            required
+                            pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{6,}"
+                            onFocus={() => setShowPasswordHint(true)}
+                            onBlur={() => setShowPasswordHint(false)}
+                          />
+                          <button
+                            type="button"
+                            className="password-toggle"
+                            onClick={togglePasswordVisibility}
+                          >
+                            {showPassword ? <EyeOff className="icon" /> : <Eye className="icon" />}
+                          </button>
+                        </div>
+                        {showPasswordHint && (
+                          <div className="password-hint">
+                            Mínimo 6 caracteres, una mayúscula, una minúscula y un número
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="register-column">
+                      <div className="input-group">
+                        <label>Confirmar Contraseña</label>
+                        <div className="input-wrapper password">
+                          <input
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirma tu contraseña"
+                            id="confirmPassword"
+                            required
+                            onFocus={() => setShowConfirmPasswordHint(true)}
+                            onBlur={() => setShowConfirmPasswordHint(false)}
+                          />
+                          <button
+                            type="button"
+                            className="password-toggle"
+                            onClick={toggleConfirmPasswordVisibility}
+                          >
+                            {showConfirmPassword ? <EyeOff className="icon" /> : <Eye className="icon" />}
+                          </button>
+                        </div>
+                        {showConfirmPasswordHint && (
+                          <div className="password-hint">
+                            Debe ser idéntica a la contraseña ingresada
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
             </div>
-          )}
 
-          <div className="sumbit-container">
-            <div 
-              className={action === "Iniciar Sesión" ? "submit" : "submit gray"}
-              onClick={() => handleSubmit("Iniciar Sesión")}
-            >
-              Iniciar Sesión
+            {/* Botones de acción */}
+            <div className="form-actions">
+              <button
+                className={`form-button ${action === "Iniciar Sesión" ? "active" : ""}`}
+                onClick={() => {
+                  if (action !== "Iniciar Sesión") {
+                    handleFormSwitch("Iniciar Sesión");
+                  } else {
+                    // Lógica para iniciar sesión
+                    handleSubmit("Iniciar Sesión");
+                  }
+                }}
+              >
+                Iniciar Sesión
+              </button>
+              <button
+                className={`form-button ${action === "Registrarse" ? "active" : ""}`}
+                onClick={() => {
+                  if (action !== "Registrarse") {
+                    handleFormSwitch("Registrarse");
+                  } else {
+                    // Lógica para registrarse
+                    handleSubmit("Registrarse");
+                  }
+                }}
+              >
+                Registrarse
+              </button>
             </div>
-            <div 
-              className={action === "Registrarse" ? "submit" : "submit gray"}
-              onClick={() => handleSubmit("Registrarse")}
-            >
-              Registrarse
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

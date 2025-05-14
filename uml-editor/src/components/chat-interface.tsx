@@ -155,20 +155,21 @@ const handleSelectConversation = async (sessionId: string) => {
               </div>
 
               <div>
-              <div className="mt-6">
-      {activeTab === "diagrams" ? (
-        <UMLViewer
-          onAnalysisComplete={handleAnalysisComplete}
-          sessionId={currentSessionId}
-          initialDiagrams={analysisResponse?.diagrams}
-          initialRequirements={analysisResponse?.requirements}
-        />
-      ) : (
-        <CodeViewer
-          generatedCode={analysisResponse?.generatedCode}
-        />
-      )}
-    </div>
+<div className="mt-6">
+  {activeTab === "diagrams" ? (
+    <UMLViewer 
+      onAnalysisComplete={handleAnalysisComplete}
+      sessionId={currentSessionId}
+      initialDiagrams={analysisResponse?.diagrams}
+      initialRequirements={analysisResponse?.requirements}
+    />
+  ) : (
+    <CodeViewer
+      generatedCode={analysisResponse?.generatedCode}
+      sessionId={currentSessionId}  // Añade esta línea para pasar el sessionId
+    />
+  )}
+</div>
 
                 {/* Área para continuar la conversación */}
                 {currentSessionId && (

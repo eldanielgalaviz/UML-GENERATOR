@@ -4,17 +4,19 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Habilitar CORS
+  // Configurar CORS
   app.enableCors({
-    origin: 'http://localhost:5173', // URL de tu aplicación Vite
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: ['http://localhost:5173', 'http://localhost:4200'],  // Añade aquí todos tus orígenes frontend
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization,session-id',
+    exposedHeaders: ['Content-Disposition'],  // Importante para las descargas
     credentials: true,
   });
 
-  // Cambiar a puerto 3001 para el backend
-  const port = 3005;
+  // Puerto del servidor
+  const port = process.env.PORT || 3005;
   await app.listen(port);
   
-  console.log(`Backend server running on http://localhost:${port}`);
+  console.log(`Servidor ejecutándose en: http://localhost:${port}`);
 }
 bootstrap();

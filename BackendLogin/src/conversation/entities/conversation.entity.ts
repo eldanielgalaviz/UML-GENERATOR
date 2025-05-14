@@ -13,6 +13,8 @@ export class Conversation {
   @Column('text')
   originalRequirements: string;
 
+  // Para PostgreSQL puedes usar jsonb para mejor rendimiento si lo tienes disponible
+  // Para otros motores de BD, usa json
   @Column({ type: 'json', nullable: true })
   requirements: any;
 
@@ -25,6 +27,7 @@ export class Conversation {
   @Column({ nullable: true })
   sessionId: string;
 
+  // Definir como json evita problemas de tipos con TypeORM
   @Column({ type: 'json', nullable: true })
   generatedCode: any; 
 

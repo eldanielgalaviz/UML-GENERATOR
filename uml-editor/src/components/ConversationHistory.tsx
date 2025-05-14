@@ -33,11 +33,11 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({ onSelectConve
             return;
           }
           
-          setDebug(`Token encontrado: ${token.substring(0, 15)}...`);
+        //   setDebug(`Token encontrado: ${token.substring(0, 15)}...`);
           
           const data = await fetchUserConversations();
           console.log('Conversaciones cargadas:', data);
-          setDebug(prev => `${prev || ''}\nRecibidas ${data.length} conversaciones`);
+        //   setDebug(prev => `${prev || ''}\nRecibidas ${data.length} conversaciones`);
           
           setConversations(data);
           setError(null);

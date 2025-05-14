@@ -125,39 +125,46 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     loadMermaid();
   }, []);
 
-  const handleAnalyze = async () => {
-    if (!requirements.trim()) {
-      setError('Por favor ingresa los requerimientos');
-      return;
-    }
+const handleAnalyze = async () => {
+  if (!requirements.trim()) {
+    setError('Por favor ingresa los requerimientos');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setError('');
-      console.log('Enviando requerimientos al servidor...');
+  try {
+    setLoading(true);
+    setError('');
+    console.log('Enviando requerimientos al servidor...');
 
-      const data = await analyzeRequirements(requirements.trim(), sessionId);
-      console.log('Datos recibidos:', data);
+    const data = await analyzeRequirements(requirements.trim(), sessionId);
+    console.log('Datos recibidos:', data);
 
-      if (data.diagrams && Array.isArray(data.diagrams)) {
-        setDiagrams(data.diagrams);
-        setAnalysisResponse(data);
-        if (data.diagrams.length > 0) {
-          setSelectedDiagram(data.diagrams[0]);
-        }
-        if (onAnalysisComplete) {
-          onAnalysisComplete(data);
-        }
-      } else {
-        throw new Error('No se recibieron diagramas válidos');
+    if (data.diagrams && Array.isArray(data.diagrams)) {
+      setDiagrams(data.diagrams);
+      setAnalysisResponse(data);
+      
+      // Guardar el sessionId en localStorage
+      if (data.sessionId) {
+        localStorage.setItem('currentSessionId', data.sessionId);
+        console.log('ID de sesión guardado:', data.sessionId);
       }
-    } catch (err: any) {
-      console.error('Error en handleAnalyze:', err);
-      setError(err.message || 'Error al analizar los requerimientos');
-    } finally {
-      setLoading(false);
+      
+      if (data.diagrams.length > 0) {
+        setSelectedDiagram(data.diagrams[0]);
+      }
+      if (onAnalysisComplete) {
+        onAnalysisComplete(data);
+      }
+    } else {
+      throw new Error('No se recibieron diagramas válidos');
     }
-  };
+  } catch (err: any) {
+    console.error('Error en handleAnalyze:', err);
+    setError(err.message || 'Error al analizar los requerimientos');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGenerateCode = async () => {
     // Verificamos si hay diagramas, pero cambiamos la condición para que sea más simple

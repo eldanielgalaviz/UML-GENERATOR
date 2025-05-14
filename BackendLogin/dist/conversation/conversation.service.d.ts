@@ -1,14 +1,26 @@
 import { Repository } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
-import { IEEE830Requirement, MermaidDiagram } from '../gemini/interfaces/diagram.interface';
+import { IEEE830Requirement, MermaidDiagram, GeneratedCode } from '../gemini/interfaces/code-generation.interface';
+export interface ConversationState {
+    originalRequirements: string;
+    requirements: IEEE830Requirement[];
+    diagrams: MermaidDiagram[];
+    generatedCode?: GeneratedCode;
+    messages: {
+        role: 'user' | 'system';
+        content: string;
+    }[];
+}
 export declare class ConversationService {
     private conversationRepository;
     private readonly logger;
     private conversations;
     constructor(conversationRepository: Repository<Conversation>);
     createConversation(sessionId: string, originalRequirements: string, userId?: number): Promise<void>;
-    saveGeneratedCode(sessionId: string, userId: number, generatedCode: any): Promise<void>;
-    getConversation(sessionId: string): Promise<any>;
+    updateGeneratedCode(sessionId: string, generatedCode: GeneratedCode): void;
+    saveGeneratedCode(sessionId: string, userId: number, generatedCode: GeneratedCode): Promise<void>;
+    getConversation(sessionId: string): ConversationState | null;
+    findConversationById(sessionId: string): Promise<any>;
     updateConversation(sessionId: string, requirements?: IEEE830Requirement[], diagrams?: MermaidDiagram[], userId?: number): Promise<void>;
     addMessage(sessionId: string, role: 'user' | 'system', content: string, userId?: number): Promise<void>;
     getFullPrompt(sessionId: string): string;

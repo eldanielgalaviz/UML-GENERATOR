@@ -1,5 +1,38 @@
 // src/gemini/gemini.service.ts
+// Interfaces para entidades extraídas del diagrama de clases
+interface EntityAttribute {
+  name: string;
+  type: string;
+  isPrivate?: boolean;
+}
 
+interface EntityMethod {
+  name: string;
+  isPrivate?: boolean;
+}
+
+interface EntityRelation {
+  from: string;
+  fromCardinality: string;
+  type: string;
+  toCardinality: string;
+  to: string;
+  label?: string;
+}
+
+interface Entity {
+  name: string;
+  attributes: EntityAttribute[];
+  methods: EntityMethod[];
+  relations: EntityRelation[];
+}
+
+// Interfaz para scripts de base de datos
+export interface DatabaseScripts {
+  scripts: string[];
+}
+import * as JSZip from 'jszip';
+import { Response } from 'express';
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
@@ -146,6 +179,7 @@ export class GeminiService {
       }];
     }
   }
+  
 
   private async generateAllDiagrams(
     originalRequirements: string,
@@ -473,9 +507,15 @@ async generateCode(
     // Generar el frontend
     const frontend = await this.generateFrontend(diagrams, requirements);
     
+    // Generar scripts SQL para PostgreSQL
+    const sqlScripts = await this.generateDatabaseScripts(diagrams, requirements);
+    
     return {
       backend,
-      frontend
+      frontend,
+      database: {
+        scripts: sqlScripts
+      }
     };
   } catch (error) {
     this.logger.error(`Error en generación de código: ${error.message}`);
@@ -1399,6 +1439,608 @@ private buildFrontendPrompt(
   
   SOLO DEVUELVE EL JSON, sin explicaciones ni comentarios adicionales.
   `;
+}
+
+// Función para generar scripts SQL para PostgreSQL basados en el diagrama de clases
+private async generateDatabaseScripts(
+  diagrams: MermaidDiagram[],
+  requirements: IEEE830Requirement[]
+): Promise<string[]> {
+  try {
+    this.logger.log('Generando scripts SQL para PostgreSQL basados en el diagrama de clases...');
+    
+    // Encontrar el diagrama de clases para extraer entidades
+    const classDiagram = diagrams.find(d => d.type === 'classDiagram');
+    if (!classDiagram) {
+      throw new Error('Se requiere un diagrama de clases para generar scripts SQL');
+    }
+
+    // Extraer entidades del diagrama de clases
+    const entities = this.extractEntitiesFromClassDiagram(classDiagram.code);
+    
+    // Prompt específico para PostgreSQL que usa las entidades extraídas
+    const prompt = `
+    GENERA SCRIPTS SQL COMPLETOS para PostgreSQL basados en estas entidades extraídas del diagrama de clases:
+    ${JSON.stringify(entities, null, 2)}
+    
+    Y estos requisitos:
+    ${JSON.stringify(requirements, null, 2)}
+    
+    GENERA LOS SIGUIENTES SCRIPTS SQL:
+    
+    1. Script de creación de base de datos
+    2. Scripts de creación de tablas con:
+       - Tipos de datos PostgreSQL apropiados (usa TEXT, INTEGER, BOOLEAN, TIMESTAMP, etc.)
+       - Usa nombres de tablas en minúsculas y plural (users, profiles, etc.)
+       - Claves primarias (usa id SERIAL PRIMARY KEY para IDs auto-incrementales)
+       - Claves foráneas (implementa las relaciones del diagrama de clases)
+       - Restricciones de integridad (NOT NULL, UNIQUE donde sea apropiado)
+       - Índices necesarios para mejorar el rendimiento
+    3. Scripts para timestamps automáticos (created_at, updated_at)
+       - Crea un trigger para actualizar automáticamente updated_at
+    4. Scripts para datos iniciales si son necesarios según los requisitos
+    
+    IMPORTANTE:
+    - Asegúrate que los scripts sean compatibles con el código backend NestJS que usará TypeORM
+    - Los nombres de las tablas deben coincidir con los nombres de entidades en el código (pero en snake_case)
+    - Toda propiedad String en las entidades debe ser TEXT o VARCHAR en PostgreSQL
+    - Implementa todas las relaciones del diagrama (one-to-many, many-to-many, etc.)
+    - Usa ON DELETE CASCADE donde tenga sentido para mantener la integridad referencial
+    - Genera scripts idempotentes (DROP IF EXISTS)
+    - Incluye comentarios explicativos
+    
+    FORMATO:
+    -- Archivo: 01_database.sql
+    CREATE DATABASE app_database;
+    
+    -- Archivo: 02_tables.sql
+    CREATE TABLE users (...);
+    
+    -- Archivo: 03_functions.sql
+    CREATE OR REPLACE FUNCTION update_timestamp() ...
+    
+    -- Archivo: 04_seed_data.sql
+    INSERT INTO users (...) VALUES (...);
+    `;
+    
+    const response = await this.retryOperation(async () => {
+      const result = await this.model.generateContent([{ text: prompt }]);
+      return result.response.text();
+    });
+    
+    // Separar los scripts por archivos
+    return this.extractSqlScriptsByFile(response);
+  } catch (error) {
+    this.logger.error(`Error generando scripts SQL: ${error.message}`);
+    // Generar scripts básicos basados en las entidades que pudimos extraer
+    return this.generateBasicSqlFromEntities(diagrams);
+  }
+}
+
+// Extraer entidades y sus relaciones del diagrama de clases
+private extractEntitiesFromClassDiagram(classDiagramCode: string): Entity[] {
+  const entities: Entity[] = [];
+  const lines = classDiagramCode.split('\n');
+  
+  let currentEntity: Entity | null = null;
+  
+  for (const line of lines) {
+    // Detectar definición de clase
+    const classMatch = line.match(/class\s+(\w+)/);
+    if (classMatch) {
+      if (currentEntity) {
+        entities.push(currentEntity);
+      }
+      
+      currentEntity = {
+        name: classMatch[1],
+        attributes: [],
+        methods: [],
+        relations: []
+      };
+      continue;
+    }
+    
+    // Si estamos dentro de una entidad, procesar sus elementos
+    if (currentEntity) {
+      // Atributos (properties)
+      const attributeMatch = line.match(/\s*(\+|-)?\s*(\w+)\s*:\s*(\w+)/);
+      if (attributeMatch) {
+        currentEntity.attributes.push({
+          name: attributeMatch[2],
+          type: attributeMatch[3],
+          isPrivate: attributeMatch[1] === '-'
+        });
+        continue;
+      }
+      
+      // Métodos
+      const methodMatch = line.match(/\s*(\+|-)?\s*(\w+)\(\)/);
+      if (methodMatch) {
+        currentEntity.methods.push({
+          name: methodMatch[2],
+          isPrivate: methodMatch[1] === '-'
+        });
+        continue;
+      }
+    }
+    
+    // Detectar relaciones entre clases
+    const relationMatch = line.match(/(\w+)\s+("[\w\*]+")\s*(--|-->|<--|<-->\s*)\s*("[\w\*]+")\s*(\w+)(?:\s*:\s*(.+))?/);
+    if (relationMatch) {
+      const relation: EntityRelation = {
+        from: relationMatch[1],
+        fromCardinality: relationMatch[2].replace(/"/g, ''),
+        type: relationMatch[3].trim(),
+        toCardinality: relationMatch[4].replace(/"/g, ''),
+        to: relationMatch[5],
+        label: relationMatch[6] || ''
+      };
+      
+      // Añadir la relación a la entidad correspondiente
+      const fromEntity = entities.find(e => e.name === relation.from);
+      if (fromEntity) {
+        fromEntity.relations.push(relation);
+      } else if (currentEntity && currentEntity.name === relation.from) {
+        currentEntity.relations.push(relation);
+      }
+    }
+  }
+  
+  // Añadir la última entidad si existe
+  if (currentEntity) {
+    entities.push(currentEntity);
+  }
+  
+  return entities;
+}
+
+// Importamos la biblioteca JSZip al inicio del archivo
+
+
+// Función para generar un archivo ZIP con todos los códigos generados
+async generateProjectZip(generatedCode: GeneratedCode, response: Response): Promise<void> {
+  try {
+    this.logger.log('Generando archivo ZIP del proyecto completo...');
+    
+    // Crear una nueva instancia de JSZip
+    const zip = new JSZip();
+    
+    // Crear las carpetas principales
+    const frontendFolder = zip.folder('frontend');
+    const backendFolder = zip.folder('backend');
+    const databaseFolder = zip.folder('database');
+    
+    if (!frontendFolder || !backendFolder || !databaseFolder) {
+      throw new Error('Error al crear carpetas en el archivo ZIP');
+    }
+    
+    // Agregar archivos del backend
+    if (generatedCode.backend) {
+      // Agregar archivos comunes
+      if (generatedCode.backend.commonFiles) {
+        this.addFilesToZip(backendFolder, generatedCode.backend.commonFiles);
+      }
+      
+      // Agregar archivos de cada módulo
+      if (generatedCode.backend.modules) {
+        for (const module of generatedCode.backend.modules) {
+          if (module.files) {
+            this.addFilesToZip(backendFolder, module.files);
+          }
+        }
+      }
+      
+      // Agregar comandos CLI como archivo README
+      if (generatedCode.backend.cliCommands && generatedCode.backend.cliCommands.length > 0) {
+        backendFolder.file('README.md', `# Backend - Comandos CLI\n\n` + 
+          generatedCode.backend.cliCommands.map(cmd => `\`\`\`\n${cmd}\n\`\`\``).join('\n\n'));
+      }
+    }
+    
+    // Agregar archivos del frontend
+    if (generatedCode.frontend) {
+      // Agregar archivos comunes
+      if (generatedCode.frontend.commonFiles) {
+        this.addFilesToZip(frontendFolder, generatedCode.frontend.commonFiles);
+      }
+      
+      // Agregar archivos de cada módulo
+      if (generatedCode.frontend.modules) {
+        for (const module of generatedCode.frontend.modules) {
+          if (module.files) {
+            this.addFilesToZip(frontendFolder, module.files);
+          }
+        }
+      }
+      
+      // Agregar comandos CLI como archivo README
+      if (generatedCode.frontend.cliCommands && generatedCode.frontend.cliCommands.length > 0) {
+        frontendFolder.file('README.md', `# Frontend - Comandos CLI\n\n` + 
+          generatedCode.frontend.cliCommands.map(cmd => `\`\`\`\n${cmd}\n\`\`\``).join('\n\n'));
+      }
+    }
+    
+    // Agregar scripts SQL de la base de datos
+    if (generatedCode.database && generatedCode.database.scripts) {
+      for (let i = 0; i < generatedCode.database.scripts.length; i++) {
+        const script = generatedCode.database.scripts[i];
+        const scriptName = this.extractScriptName(script, i);
+        databaseFolder.file(scriptName, script);
+      }
+    }
+    
+    // Agregar un README principal
+    zip.file('README.md', this.generateReadme(generatedCode));
+    
+    // Generar el archivo ZIP
+    const zipContent = await zip.generateAsync({ type: 'nodebuffer' });
+    
+    // Configurar las cabeceras para la descarga
+    response.setHeader('Content-Disposition', 'attachment; filename=proyecto-generado.zip');
+    response.setHeader('Content-Type', 'application/zip');
+    
+    // Enviar el archivo
+    response.send(zipContent);
+    
+    this.logger.log('Archivo ZIP generado y enviado correctamente');
+  } catch (error) {
+    this.logger.error(`Error generando archivo ZIP: ${error.message}`);
+    throw new Error(`Error generando archivo ZIP: ${error.message}`);
+  }
+}
+
+
+// Función auxiliar para agregar archivos al ZIP
+private addFilesToZip(folder: JSZip, files: any[]): void {
+  if (!files || !Array.isArray(files)) return;
+  
+  for (const file of files) {
+    if (!file.path || !file.content) continue;
+    
+    // Crear carpetas intermedias si es necesario
+    const pathParts = file.path.split('/');
+    const fileName = pathParts.pop() || '';
+    let currentFolder: JSZip = folder;
+    
+    // Crear jerarquía de carpetas
+    for (const part of pathParts) {
+      if (part) {
+        const newFolder = currentFolder.folder(part);
+        if (newFolder) {
+          currentFolder = newFolder;
+        }
+      }
+    }
+    
+    // Agregar el archivo
+    currentFolder.file(fileName, file.content);
+  }
+}
+
+// Función para extraer el nombre del script SQL
+private extractScriptName(script: string, index: number): string {
+  // Buscar el nombre del archivo en el comentario inicial
+  const fileNameMatch = script.match(/-- Archivo: (\w+\.sql)/);
+  if (fileNameMatch && fileNameMatch[1]) {
+    return fileNameMatch[1];
+  }
+  
+  // Si no se encuentra, usar un nombre predeterminado
+  return `script_${index + 1}.sql`;
+}
+
+// Función para generar un README con instrucciones
+private generateReadme(generatedCode: GeneratedCode): string {
+  return `# Proyecto Generado
+
+Este proyecto ha sido generado automáticamente a partir de diagramas UML y requisitos.
+
+## Estructura del Proyecto
+
+El proyecto se divide en tres partes principales:
+
+### Frontend (Angular)
+
+La carpeta \`frontend\` contiene un proyecto Angular completo con los siguientes módulos:
+
+${generatedCode.frontend?.modules?.map(m => `- ${m.name}`).join('\n') || 'No se han generado módulos de frontend'}
+
+Para ejecutar el frontend:
+
+1. Navega a la carpeta \`frontend\`
+2. Instala las dependencias: \`npm install\`
+3. Inicia el servidor de desarrollo: \`ng serve\`
+4. Abre tu navegador en \`http://localhost:4200\`
+
+### Backend (NestJS)
+
+La carpeta \`backend\` contiene un proyecto NestJS completo con los siguientes módulos:
+
+${generatedCode.backend?.modules?.map(m => `- ${m.name}`).join('\n') || 'No se han generado módulos de backend'}
+
+Para ejecutar el backend:
+
+1. Navega a la carpeta \`backend\`
+2. Instala las dependencias: \`npm install\`
+3. Inicia el servidor de desarrollo: \`npm run start:dev\`
+4. El API estará disponible en \`http://localhost:3000\`
+
+### Base de Datos (PostgreSQL)
+
+La carpeta \`database\` contiene scripts SQL para crear y configurar la base de datos PostgreSQL.
+
+Para configurar la base de datos:
+
+1. Instala PostgreSQL si aún no lo tienes
+2. Crea una nueva base de datos
+3. Ejecuta los scripts SQL en el siguiente orden:
+   - Primero: script de creación de base de datos
+   - Segundo: script de creación de tablas
+   - Tercero: script de relaciones
+   - Cuarto: script de funciones y triggers
+   - Quinto: script de datos iniciales (si existe)
+
+## Configuración
+
+Asegúrate de configurar las variables de entorno en los archivos \`.env\` en ambos proyectos.
+
+## Licencia
+
+Este proyecto es de código abierto y está disponible bajo la licencia MIT.
+`;
+}
+// Extraer scripts SQL por archivo
+private extractSqlScriptsByFile(response: string): string[] {
+  const scripts: string[] = [];
+  
+  // Eliminar bloques de código markdown si existen
+  let cleanedResponse = response.replace(/```sql\s*/g, '')
+                               .replace(/```\s*/g, '');
+  
+  // Buscar separadores de archivos
+  const fileRegex = /-- Archivo: (\w+\.sql)/g;
+  let match;
+  let lastIndex = 0;
+  const positions: number[] = [];
+  
+  // Encontrar todas las posiciones de los separadores de archivos
+  while ((match = fileRegex.exec(cleanedResponse)) !== null) {
+    positions.push(match.index);
+  }
+  
+  // Si no hay separadores, devolver la respuesta completa como un script
+  if (positions.length === 0) {
+    scripts.push(cleanedResponse);
+    return scripts;
+  }
+  
+  // Extraer cada script basado en los separadores encontrados
+  for (let i = 0; i < positions.length; i++) {
+    const start = positions[i];
+    const end = i < positions.length - 1 ? positions[i + 1] : cleanedResponse.length;
+    
+    const scriptContent = cleanedResponse.substring(start, end).trim();
+    if (scriptContent) {
+      scripts.push(scriptContent);
+    }
+  }
+  
+  return scripts;
+}
+
+// Generar scripts SQL básicos basados en las entidades extraídas
+private generateBasicSqlFromEntities(diagrams: MermaidDiagram[]): string[] {
+  try {
+    const classDiagram = diagrams.find(d => d.type === 'classDiagram');
+    if (!classDiagram) {
+      return this.getDefaultSqlScripts();
+    }
+    
+    const entities = this.extractEntitiesFromClassDiagram(classDiagram.code);
+    if (!entities || entities.length === 0) {
+      return this.getDefaultSqlScripts();
+    }
+    
+    // Generar scripts para cada entidad
+    let tableScripts = '';
+    let relationScripts = '';
+    
+    entities.forEach(entity => {
+      // Nombre de la tabla en plural y snake_case
+      const tableName = this.pluralize(this.toSnakeCase(entity.name));
+      
+      // Generar script para la tabla
+      tableScripts += `-- Tabla para la entidad ${entity.name}\n`;
+      tableScripts += `CREATE TABLE IF NOT EXISTS ${tableName} (\n`;
+      tableScripts += `  id SERIAL PRIMARY KEY,\n`;
+      
+      // Añadir columnas basadas en los atributos
+      entity.attributes.forEach((attr: EntityAttribute) => {
+        const columnName = this.toSnakeCase(attr.name);
+        const columnType = this.mapTypeToPostgres(attr.type);
+        tableScripts += `  ${columnName} ${columnType},\n`;
+      });
+      
+      // Añadir timestamps
+      tableScripts += `  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n`;
+      tableScripts += `  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n`;
+      tableScripts += `);\n\n`;
+      
+      // Generar índices para la tabla
+      tableScripts += `-- Índices para la tabla ${tableName}\n`;
+      entity.attributes.forEach((attr: EntityAttribute) => {
+        if (attr.name.endsWith('Id') || attr.name === 'email' || attr.name === 'username') {
+          const columnName = this.toSnakeCase(attr.name);
+          tableScripts += `CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName}(${columnName});\n`;
+        }
+      });
+      tableScripts += '\n';
+      
+      // Procesar relaciones
+      entity.relations.forEach((relation: EntityRelation) => {
+        if (relation.type.includes('-->')) {
+          const sourceTable = this.pluralize(this.toSnakeCase(entity.name));
+          const targetTable = this.pluralize(this.toSnakeCase(relation.to));
+          const foreignKeyColumn = this.toSnakeCase(this.singularize(relation.to)) + '_id';
+          
+          // Muchos a uno o uno a uno
+          if (relation.toCardinality === '1') {
+            relationScripts += `-- Relación: ${entity.name} -> ${relation.to}\n`;
+            relationScripts += `ALTER TABLE ${sourceTable} ADD COLUMN IF NOT EXISTS ${foreignKeyColumn} INTEGER REFERENCES ${targetTable}(id)`;
+            
+            // Si es uno a uno, añadir UNIQUE
+            if (relation.fromCardinality === '1') {
+              relationScripts += ' UNIQUE';
+            }
+            
+            // Añadir ON DELETE CASCADE si tiene sentido
+            relationScripts += ' ON DELETE CASCADE;\n\n';
+          }
+          // Muchos a muchos
+          else if (relation.toCardinality === '*' && relation.fromCardinality === '*') {
+            const junctionTable = `${this.toSnakeCase(entity.name)}_${this.toSnakeCase(relation.to)}`;
+            relationScripts += `-- Relación muchos a muchos: ${entity.name} <-> ${relation.to}\n`;
+            relationScripts += `CREATE TABLE IF NOT EXISTS ${junctionTable} (\n`;
+            relationScripts += `  ${this.toSnakeCase(this.singularize(entity.name))}_id INTEGER REFERENCES ${sourceTable}(id) ON DELETE CASCADE,\n`;
+            relationScripts += `  ${this.toSnakeCase(this.singularize(relation.to))}_id INTEGER REFERENCES ${targetTable}(id) ON DELETE CASCADE,\n`;
+            relationScripts += `  PRIMARY KEY (${this.toSnakeCase(this.singularize(entity.name))}_id, ${this.toSnakeCase(this.singularize(relation.to))}_id)\n`;
+            relationScripts += `);\n\n`;
+          }
+        }
+      });
+    });
+    
+    // Generar función para timestamps
+    const timestampFunction = `-- Función para actualizar automáticamente updated_at
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+`;
+
+    // Generar triggers para cada tabla
+    let triggerScripts = '';
+    entities.forEach(entity => {
+      const tableName = this.pluralize(this.toSnakeCase(entity.name));
+      triggerScripts += `-- Trigger para actualizar updated_at en ${tableName}\n`;
+      triggerScripts += `DROP TRIGGER IF EXISTS update_${tableName}_timestamp ON ${tableName};\n`;
+      triggerScripts += `CREATE TRIGGER update_${tableName}_timestamp\n`;
+      triggerScripts += `BEFORE UPDATE ON ${tableName}\n`;
+      triggerScripts += `FOR EACH ROW\n`;
+      triggerScripts += `EXECUTE FUNCTION update_timestamp();\n\n`;
+    });
+    
+    return [
+      `-- Archivo: 01_database.sql
+-- Creación de la base de datos
+CREATE DATABASE app_database;
+\\c app_database;`,
+
+      `-- Archivo: 02_tables.sql
+-- Creación de tablas
+${tableScripts}`,
+
+      `-- Archivo: 03_relationships.sql
+-- Relaciones entre tablas
+${relationScripts}`,
+
+      `-- Archivo: 04_functions_and_triggers.sql
+-- Funciones y triggers
+${timestampFunction}
+${triggerScripts}`
+    ];
+  } catch (error) {
+    this.logger.error(`Error generando scripts SQL básicos: ${error.message}`);
+    return this.getDefaultSqlScripts();
+  }
+}
+
+// Mapear tipo de entidad a tipo PostgreSQL
+private mapTypeToPostgres(type: string): string {
+  const mapping: {[key: string]: string} = {
+    'String': 'TEXT',
+    'Number': 'INTEGER',
+    'Boolean': 'BOOLEAN',
+    'Date': 'TIMESTAMP',
+    'Object': 'JSONB',
+    'Array': 'JSONB',
+    'ID': 'INTEGER',
+    'Int': 'INTEGER',
+    'Float': 'NUMERIC',
+    'Double': 'NUMERIC(15,2)',
+    'Long': 'BIGINT',
+    'Decimal': 'NUMERIC(15,2)',
+    'BigDecimal': 'NUMERIC(20,6)',
+    'Char': 'CHAR(1)',
+    'BigInteger': 'BIGINT'
+  };
+  
+  return mapping[type] || 'TEXT';
+}
+
+// Convertir a snake_case
+private toSnakeCase(str: string): string {
+  return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
+// Scripts por defecto en caso de error
+private getDefaultSqlScripts(): string[] {
+  return [
+    `-- Archivo: 01_database.sql
+-- Database creation script
+CREATE DATABASE app_database;
+\\c app_database;`,
+
+    `-- Archivo: 02_tables.sql
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Profiles table
+CREATE TABLE IF NOT EXISTS profiles (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  bio TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);`,
+
+    `-- Archivo: 03_functions_and_triggers.sql
+-- Function to update timestamps
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for users table
+CREATE TRIGGER update_users_timestamp
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+
+-- Trigger for profiles table
+CREATE TRIGGER update_profiles_timestamp
+BEFORE UPDATE ON profiles
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();`
+  ];
 }
 
 // src/gemini/gemini.service.ts (solo la función extractJsonFromResponse)

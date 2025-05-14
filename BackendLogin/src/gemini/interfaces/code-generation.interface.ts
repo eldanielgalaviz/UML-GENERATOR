@@ -60,9 +60,14 @@ export interface AngularFrontend {
   cliCommands: string[];
 }
 
+export interface DatabaseScripts {
+  scripts: string[];
+}
+
 export interface GeneratedCode {
   backend: NestJSBackend;
   frontend: AngularFrontend;
+  database?: DatabaseScripts;
 }
 
 export type DiagramType = 

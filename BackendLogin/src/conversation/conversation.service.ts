@@ -1,14 +1,28 @@
-// src/conversation/conversation.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
-import { IEEE830Requirement, MermaidDiagram } from '../gemini/interfaces/diagram.interface';
+import { 
+  IEEE830Requirement, 
+  MermaidDiagram,
+  GeneratedCode
+} from '../gemini/interfaces/code-generation.interface';
+
+export interface ConversationState {
+  originalRequirements: string;
+  requirements: IEEE830Requirement[];
+  diagrams: MermaidDiagram[];
+  generatedCode?: GeneratedCode;
+  messages: {
+    role: 'user' | 'system';
+    content: string;
+  }[];
+}
 
 @Injectable()
 export class ConversationService {
   private readonly logger = new Logger(ConversationService.name);
-  private conversations: Map<string, any> = new Map();
+  private conversations: Map<string, ConversationState> = new Map();
 
   constructor(
     @InjectRepository(Conversation)
@@ -60,11 +74,25 @@ export class ConversationService {
     }
   }
 
-  // src/conversation/conversation.service.ts
+  // Actualizar el código generado en la conversación
+// Actualizar el código generado en la conversación
+updateGeneratedCode(sessionId: string, generatedCode: GeneratedCode): void {
+  const conversation = this.getConversation(sessionId);
+  if (!conversation) {
+    throw new Error(`Conversación con ID ${sessionId} no encontrada`);
+  }
+
+  // Actualizar el código generado en la conversación en memoria
+  conversation.generatedCode = generatedCode;
+  this.conversations.set(sessionId, conversation);
+  this.logger.log(`Código generado actualizado para sesión: ${sessionId}`);
+}
+
+  // Guardar el código generado en la base de datos
 async saveGeneratedCode(
   sessionId: string,
   userId: number,
-  generatedCode: any
+  generatedCode: GeneratedCode
 ): Promise<void> {
   try {
     const conversation = await this.conversationRepository.findOne({
@@ -77,10 +105,11 @@ async saveGeneratedCode(
     }
     
     // Actualizar con el código generado
+    // Convertimos generatedCode a un objeto plano para evitar problemas de tipo con TypeORM
     await this.conversationRepository.update(
       { id: conversation.id },
       { 
-        generatedCode,
+        generatedCode: generatedCode as any, // Usar 'as any' para evitar el error de tipo
         updatedAt: new Date()
       }
     );
@@ -93,35 +122,44 @@ async saveGeneratedCode(
 }
 
   // Obtiene una conversación
-  async getConversation(sessionId: string): Promise<any> {
+  getConversation(sessionId: string): ConversationState | null {
     // Primero buscar en memoria
     const memoryConversation = this.conversations.get(sessionId);
     if (memoryConversation) {
       return memoryConversation;
     }
     
-    // Si no está en memoria, buscar en BD
+    // Si no está en memoria, devolver null (ya que el método es sincrónico)
+    return null;
+  }
+
+  // Buscar conversación en la base de datos
+  async findConversationById(sessionId: string): Promise<any> {
     try {
+      // Buscar en BD
       const dbConversation = await this.conversationRepository.findOne({
         where: { sessionId }
       });
       
       if (dbConversation) {
         // Cargar en memoria para uso futuro
-        this.conversations.set(sessionId, {
+        const conversationState: ConversationState = {
           originalRequirements: dbConversation.originalRequirements,
           requirements: dbConversation.requirements || [],
           diagrams: dbConversation.diagrams || [],
-          messages: dbConversation.messages || []
-        });
+          messages: dbConversation.messages || [],
+          generatedCode: dbConversation.generatedCode
+        };
         
-        return this.conversations.get(sessionId);
+        this.conversations.set(sessionId, conversationState);
+        return conversationState;
       }
+      
+      return null;
     } catch (error) {
       this.logger.error(`Error al buscar conversación en BD: ${error.message}`);
+      return null;
     }
-    
-    return null;
   }
 
   // Actualiza la conversación
@@ -131,7 +169,7 @@ async saveGeneratedCode(
     diagrams?: MermaidDiagram[],
     userId?: number
   ): Promise<void> {
-    const conversation = await this.getConversation(sessionId);
+    const conversation = this.getConversation(sessionId);
     if (!conversation) {
       throw new Error(`Conversación con ID ${sessionId} no encontrada`);
     }
@@ -172,7 +210,7 @@ async saveGeneratedCode(
     content: string,
     userId?: number
   ): Promise<void> {
-    const conversation = await this.getConversation(sessionId);
+    const conversation = this.getConversation(sessionId);
     if (!conversation) {
       throw new Error(`Conversación con ID ${sessionId} no encontrada`);
     }
@@ -198,13 +236,15 @@ async saveGeneratedCode(
 
   // Obtiene el prompt completo
   getFullPrompt(sessionId: string): string {
-    const conversation = this.conversations.get(sessionId);
+    const conversation = this.getConversation(sessionId);
     if (!conversation) {
       throw new Error(`Conversación con ID ${sessionId} no encontrada`);
     }
 
+    // Combina el requerimiento original con los mensajes posteriores para formar un prompt completo
     let fullPrompt = conversation.originalRequirements + "\n\n";
     
+    // Añadir mensajes posteriores al primer requerimiento
     for (let i = 1; i < conversation.messages.length; i++) {
       const message = conversation.messages[i];
       if (message.role === 'user') {
@@ -237,36 +277,54 @@ async saveGeneratedCode(
     return words.length > 30 ? words.substring(0, 30) + '...' : words;
   }
 
-  // src/conversation/conversation.service.ts
-async createOrUpdateConversation(
-  sessionId: string,
-  originalRequirements: string,
-  userId: number,
-  requirements?: any[],
-  diagrams?: any[]
-): Promise<void> {
-  try {
-    // Verificar si ya existe la conversación
-    const existingConversation = await this.conversationRepository.findOne({
-      where: { sessionId, userId }
-    });
-    
-    if (existingConversation) {
-      // Actualizar la conversación existente
-      await this.conversationRepository.update(
-        { id: existingConversation.id },
-        {
-          requirements: requirements || existingConversation.requirements,
-          diagrams: diagrams || existingConversation.diagrams,
-          updatedAt: new Date()
-        }
-      );
-      this.logger.log(`Conversación ${sessionId} actualizada para usuario ${userId}`);
-    } else {
-      // Crear una nueva conversación
-      const conversation = this.conversationRepository.create({
-        sessionId,
-        title: this.generateTitle(originalRequirements),
+  // Crear o actualizar una conversación
+  async createOrUpdateConversation(
+    sessionId: string,
+    originalRequirements: string,
+    userId: number,
+    requirements?: any[],
+    diagrams?: any[]
+  ): Promise<void> {
+    try {
+      // Verificar si ya existe la conversación
+      const existingConversation = await this.conversationRepository.findOne({
+        where: { sessionId, userId }
+      });
+      
+      if (existingConversation) {
+        // Actualizar la conversación existente
+        await this.conversationRepository.update(
+          { id: existingConversation.id },
+          {
+            requirements: requirements || existingConversation.requirements,
+            diagrams: diagrams || existingConversation.diagrams,
+            updatedAt: new Date()
+          }
+        );
+        this.logger.log(`Conversación ${sessionId} actualizada para usuario ${userId}`);
+      } else {
+        // Crear una nueva conversación
+        const conversation = this.conversationRepository.create({
+          sessionId,
+          title: this.generateTitle(originalRequirements),
+          originalRequirements,
+          requirements: requirements || [],
+          diagrams: diagrams || [],
+          messages: [
+            {
+              role: 'user',
+              content: originalRequirements
+            }
+          ],
+          userId
+        });
+        
+        await this.conversationRepository.save(conversation);
+        this.logger.log(`Nueva conversación ${sessionId} guardada para usuario ${userId}`);
+      }
+      
+      // Actualizar el caché en memoria también
+      this.conversations.set(sessionId, {
         originalRequirements,
         requirements: requirements || [],
         diagrams: diagrams || [],
@@ -275,73 +333,55 @@ async createOrUpdateConversation(
             role: 'user',
             content: originalRequirements
           }
-        ],
-        userId
+        ]
+      });
+    } catch (error) {
+      this.logger.error(`Error guardando conversación: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Obtener detalles completos de una conversación
+  async getConversationWithDetails(sessionId: string, userId: number): Promise<any> {
+    try {
+      // Buscar la conversación en la base de datos
+      const conversation = await this.conversationRepository.findOne({
+        where: { 
+          sessionId,
+          userId
+        }
       });
       
-      await this.conversationRepository.save(conversation);
-      this.logger.log(`Nueva conversación ${sessionId} guardada para usuario ${userId}`);
-    }
-    
-    // Actualizar el caché en memoria también
-    this.conversations.set(sessionId, {
-      originalRequirements,
-      requirements: requirements || [],
-      diagrams: diagrams || [],
-      messages: [
-        {
-          role: 'user',
-          content: originalRequirements
-        }
-      ]
-    });
-  } catch (error) {
-    this.logger.error(`Error guardando conversación: ${error.message}`);
-    throw error;
-  }
-}
-
-// src/conversation/conversation.service.ts
-async getConversationWithDetails(sessionId: string, userId: number): Promise<any> {
-  try {
-    // Buscar la conversación en la base de datos
-    const conversation = await this.conversationRepository.findOne({
-      where: { 
-        sessionId,
-        userId
+      if (!conversation) {
+        this.logger.warn(`Conversación ${sessionId} no encontrada para usuario ${userId}`);
+        return null;
       }
-    });
-    
-    if (!conversation) {
-      this.logger.warn(`Conversación ${sessionId} no encontrada para usuario ${userId}`);
-      return null;
+      
+      // Estructurar la respuesta similar a lo que devuelve el análisis
+      const response = {
+        sessionId,
+        requirements: conversation.requirements || [],
+        diagrams: conversation.diagrams || [],
+        generatedCode: conversation.generatedCode || null,
+        originalRequirements: conversation.originalRequirements,
+        messages: conversation.messages || []
+      };
+      
+      this.logger.log(`Recuperados detalles de conversación ${sessionId} con ${response.diagrams?.length || 0} diagramas`);
+      
+      // También actualizar el caché en memoria
+      this.conversations.set(sessionId, {
+        originalRequirements: conversation.originalRequirements,
+        requirements: conversation.requirements || [],
+        diagrams: conversation.diagrams || [],
+        messages: conversation.messages || [],
+        generatedCode: conversation.generatedCode
+      });
+      
+      return response;
+    } catch (error) {
+      this.logger.error(`Error al obtener detalles de conversación ${sessionId}: ${error.message}`);
+      throw error;
     }
-    
-    // Estructurar la respuesta similar a lo que devuelve el análisis
-    const response = {
-      sessionId,
-      requirements: conversation.requirements || [],
-      diagrams: conversation.diagrams || [],
-      generatedCode: conversation.generatedCode || null,
-      originalRequirements: conversation.originalRequirements,
-      messages: conversation.messages || []
-    };
-    
-    this.logger.log(`Recuperados detalles de conversación ${sessionId} con ${response.diagrams?.length || 0} diagramas`);
-    
-    // También actualizar el caché en memoria
-    this.conversations.set(sessionId, {
-      originalRequirements: conversation.originalRequirements,
-      requirements: conversation.requirements || [],
-      diagrams: conversation.diagrams || [],
-      messages: conversation.messages || []
-    });
-    
-    return response;
-  } catch (error) {
-    this.logger.error(`Error al obtener detalles de conversación ${sessionId}: ${error.message}`);
-    throw error;
   }
 }
-}
-

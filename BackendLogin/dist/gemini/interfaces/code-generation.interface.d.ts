@@ -30,9 +30,13 @@ export interface AngularFrontend {
     commonFiles: AngularFile[];
     cliCommands: string[];
 }
+export interface DatabaseScripts {
+    scripts: string[];
+}
 export interface GeneratedCode {
     backend: NestJSBackend;
     frontend: AngularFrontend;
+    database?: DatabaseScripts;
 }
 export type DiagramType = 'classDiagram' | 'sequenceDiagram' | 'useCaseDiagram' | 'componentDiagram' | 'packageDiagram';
 export interface IEEE830Requirement {

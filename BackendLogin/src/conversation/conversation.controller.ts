@@ -17,11 +17,19 @@ export class ConversationController {
     return this.conversationService.getUserConversations(userId);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get(':sessionId')
-  async getConversationById(@Param('sessionId') sessionId: string) {
-    return this.conversationService.getConversation(sessionId);
+// src/conversation/conversation.controller.ts
+
+@UseGuards(JwtAuthGuard)
+@Get(':sessionId')
+async getConversationById(@Param('sessionId') sessionId: string) {
+  const conversation = this.conversationService.getConversation(sessionId);
+  
+  if (!conversation) {
+    throw new NotFoundException(`Conversación con ID ${sessionId} no encontrada`);
   }
+  
+  return conversation;
+}
 
   @UseGuards(JwtAuthGuard)
   @Get(':sessionId/details')

@@ -60,6 +60,15 @@ let ConversationService = ConversationService_1 = class ConversationService {
             }
         }
     }
+    updateGeneratedCode(sessionId, generatedCode) {
+        const conversation = this.getConversation(sessionId);
+        if (!conversation) {
+            throw new Error(`Conversación con ID ${sessionId} no encontrada`);
+        }
+        conversation.generatedCode = generatedCode;
+        this.conversations.set(sessionId, conversation);
+        this.logger.log(`Código generado actualizado para sesión: ${sessionId}`);
+    }
     async saveGeneratedCode(sessionId, userId, generatedCode) {
         try {
             const conversation = await this.conversationRepository.findOne({
@@ -70,7 +79,7 @@ let ConversationService = ConversationService_1 = class ConversationService {
                 return;
             }
             await this.conversationRepository.update({ id: conversation.id }, {
-                generatedCode,
+                generatedCode: generatedCode,
                 updatedAt: new Date()
             });
             this.logger.log(`Código generado guardado para conversación ${sessionId}`);
@@ -80,32 +89,38 @@ let ConversationService = ConversationService_1 = class ConversationService {
             throw error;
         }
     }
-    async getConversation(sessionId) {
+    getConversation(sessionId) {
         const memoryConversation = this.conversations.get(sessionId);
         if (memoryConversation) {
             return memoryConversation;
         }
+        return null;
+    }
+    async findConversationById(sessionId) {
         try {
             const dbConversation = await this.conversationRepository.findOne({
                 where: { sessionId }
             });
             if (dbConversation) {
-                this.conversations.set(sessionId, {
+                const conversationState = {
                     originalRequirements: dbConversation.originalRequirements,
                     requirements: dbConversation.requirements || [],
                     diagrams: dbConversation.diagrams || [],
-                    messages: dbConversation.messages || []
-                });
-                return this.conversations.get(sessionId);
+                    messages: dbConversation.messages || [],
+                    generatedCode: dbConversation.generatedCode
+                };
+                this.conversations.set(sessionId, conversationState);
+                return conversationState;
             }
+            return null;
         }
         catch (error) {
             this.logger.error(`Error al buscar conversación en BD: ${error.message}`);
+            return null;
         }
-        return null;
     }
     async updateConversation(sessionId, requirements, diagrams, userId) {
-        const conversation = await this.getConversation(sessionId);
+        const conversation = this.getConversation(sessionId);
         if (!conversation) {
             throw new Error(`Conversación con ID ${sessionId} no encontrada`);
         }
@@ -131,7 +146,7 @@ let ConversationService = ConversationService_1 = class ConversationService {
         }
     }
     async addMessage(sessionId, role, content, userId) {
-        const conversation = await this.getConversation(sessionId);
+        const conversation = this.getConversation(sessionId);
         if (!conversation) {
             throw new Error(`Conversación con ID ${sessionId} no encontrada`);
         }
@@ -150,7 +165,7 @@ let ConversationService = ConversationService_1 = class ConversationService {
         }
     }
     getFullPrompt(sessionId) {
-        const conversation = this.conversations.get(sessionId);
+        const conversation = this.getConversation(sessionId);
         if (!conversation) {
             throw new Error(`Conversación con ID ${sessionId} no encontrada`);
         }
@@ -256,7 +271,8 @@ let ConversationService = ConversationService_1 = class ConversationService {
                 originalRequirements: conversation.originalRequirements,
                 requirements: conversation.requirements || [],
                 diagrams: conversation.diagrams || [],
-                messages: conversation.messages || []
+                messages: conversation.messages || [],
+                generatedCode: conversation.generatedCode
             });
             return response;
         }

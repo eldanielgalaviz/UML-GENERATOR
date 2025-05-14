@@ -1,3 +1,7 @@
+export interface DatabaseScripts {
+    scripts: string[];
+}
+import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { MermaidDiagram, IEEE830Requirement, AnalysisResponse, GeneratedCode } from './interfaces/code-generation.interface';
 export declare class GeminiService {
@@ -31,6 +35,17 @@ export declare class GeminiService {
     private buildFrontendModulePrompt;
     private buildBackendPrompt;
     private buildFrontendPrompt;
+    private generateDatabaseScripts;
+    private extractEntitiesFromClassDiagram;
+    generateProjectZip(generatedCode: GeneratedCode, response: Response): Promise<void>;
+    private addFilesToZip;
+    private extractScriptName;
+    private generateReadme;
+    private extractSqlScriptsByFile;
+    private generateBasicSqlFromEntities;
+    private mapTypeToPostgres;
+    private toSnakeCase;
+    private getDefaultSqlScripts;
     private extractJsonFromResponse;
     private extractCodeEmergency;
     private extractFrontendModuleNamesFromRequirements;

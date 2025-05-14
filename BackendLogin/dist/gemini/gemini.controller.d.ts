@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { GeminiService } from './gemini.service';
 import { AnalyzeRequirementsDto } from './dto/analyze-requirements.dto';
 import { GenerateCodeDto } from './dto/generate-code.dto';
@@ -8,13 +9,14 @@ export declare class GeminiController {
     private readonly conversationService;
     private readonly logger;
     constructor(geminiService: GeminiService, conversationService: ConversationService);
-    analyzeRequirements(dto: AnalyzeRequirementsDto, sessionId: string, req: any): Promise<AnalysisResponse & {
+    analyzeRequirements(dto: AnalyzeRequirementsDto, sessionId: string): Promise<AnalysisResponse & {
         sessionId: string;
     }>;
-    generateCode(dto: GenerateCodeDto, sessionId: string, req: any): Promise<GeneratedCode>;
+    generateCode(dto: GenerateCodeDto, sessionId: string): Promise<GeneratedCode>;
+    downloadProject(response: Response, sessionId?: string): Promise<void>;
     continueConversation(dto: {
         message: string;
-    }, sessionId: string, req: any): Promise<AnalysisResponse & {
+    }, sessionId: string): Promise<AnalysisResponse & {
         sessionId: string;
     }>;
 }

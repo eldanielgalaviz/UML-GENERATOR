@@ -312,7 +312,7 @@ const LoginAccess = ({ onLoginSuccess }: LoginAccessProps) => {
                     <div className="input-wrapper">
                       <input
                         type="text"
-                        placeholder="Ingresa tu usuario o correo"
+                        placeholder="Ingresa tu usuario"
                         id="username"
                         required
                       />

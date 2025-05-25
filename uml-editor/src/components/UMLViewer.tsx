@@ -1,4 +1,6 @@
+// src/components/UMLViewer.tsx (VERSIÓN MEJORADA)
 import React, { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react'; // ✅ IMPORTAR EL ICONO FALTANTE
 import { analyzeRequirements, generateCode } from '../services/api.service';
 
 interface DiagramType {
@@ -11,7 +13,7 @@ interface AnalysisResponse {
   requirements: any[];
   diagrams: DiagramType[];
   generatedCode?: any;
-  sessionId?: string; // Asegúrate de que esto esté incluido
+  sessionId?: string;
 }
 
 interface UMLViewerProps {
@@ -19,6 +21,9 @@ interface UMLViewerProps {
   sessionId?: string | null;
   initialDiagrams?: any[];
   initialRequirements?: any[];
+  // ✅ NUEVAS PROPS PARA CONTROLAR LA INTERFAZ
+  hideRequirementsInput?: boolean;
+  isExistingConversation?: boolean;
 }
 
 const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
@@ -63,7 +68,9 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
   onAnalysisComplete, 
   sessionId, 
   initialDiagrams,
-  initialRequirements
+  initialRequirements,
+  hideRequirementsInput = false, // ✅ Nueva prop
+  isExistingConversation = false // ✅ Nueva prop
 }) => {
   const [requirements, setRequirements] = useState('');
   const [loading, setLoading] = useState(false);
@@ -144,7 +151,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         setDiagrams(data.diagrams);
         setAnalysisResponse(data);
         
-        // ¡CRÍTICO! Guardar el sessionId en localStorage
+        // CRÍTICO! Guardar el sessionId en localStorage
         if (data.sessionId) {
           localStorage.setItem('currentSessionId', data.sessionId);
           console.log('🔥 SessionId guardado en localStorage:', data.sessionId);
@@ -166,6 +173,9 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
           setSelectedDiagram(data.diagrams[0]);
         }
         
+        // ✅ Limpiar el textarea después de procesar
+        setRequirements('');
+        
         if (onAnalysisComplete) {
           onAnalysisComplete(data);
         }
@@ -181,7 +191,6 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
   };
 
   const handleGenerateCode = async () => {
-    // Verificamos si hay diagramas, pero cambiamos la condición para que sea más simple
     if (diagrams.length === 0) {
       setError('No hay diagramas disponibles para generar código');
       return;
@@ -192,11 +201,8 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
       setError('');
       console.log('Generando código...');
       
-      // Aseguramos que estamos usando los datos correctos
       const diagramsToUse = analysisResponse?.diagrams || diagrams;
       const requirementsToUse = analysisResponse?.requirements || [];
-      
-      // Obtener el sessionId actual
       const currentSessionId = sessionId || localStorage.getItem('currentSessionId');
       
       console.log('Usando diagrams:', diagramsToUse.length);
@@ -211,12 +217,11 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
       
       console.log('Código generado:', codeData);
 
-      // Actualizar el análisis con el código generado
       const updatedAnalysis = {
         requirements: requirementsToUse,
         diagrams: diagramsToUse,
         generatedCode: codeData,
-        sessionId: currentSessionId // Asegurar que el sessionId se mantenga
+        sessionId: currentSessionId
       };
 
       setAnalysisResponse(updatedAnalysis);
@@ -234,92 +239,153 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
 
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <p className="text-sm text-gray-600 mb-2">
-          Estado de Mermaid: {mermaidLoaded ? 'Cargado' : 'No cargado'}
-        </p>
-        
-        {/* Mostrar sessionId actual para debug */}
-        <p className="text-xs text-blue-600 mb-2">
-          SessionId actual: {sessionId || localStorage.getItem('currentSessionId') || 'No disponible'}
-        </p>
-      </div>
+      {/* ✅ MOSTRAR INFO DE DEBUG SOLO EN DESARROLLO */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-gray-100 rounded text-sm">
+          <p className="text-gray-600 mb-1">
+            Estado de Mermaid: {mermaidLoaded ? '✅ Cargado' : '❌ No cargado'}
+          </p>
+          <p className="text-blue-600 mb-1">
+            SessionId: {sessionId || localStorage.getItem('currentSessionId') || 'No disponible'}
+          </p>
+          <p className="text-purple-600">
+            Modo: {isExistingConversation ? 'Conversación existente' : 'Nueva conversación'}
+          </p>
+        </div>
+      )}
 
-      <div className="mb-4">
-        <textarea
-          value={requirements}
-          onChange={(e) => setRequirements(e.target.value)}
-          placeholder="Ingresa los requerimientos aquí..."
-          className="w-full p-2 border rounded min-h-[100px]"
-        />
-      </div>
+      {/* ✅ FORMULARIO DE REQUERIMIENTOS - SOLO SI NO ESTÁ OCULTO */}
+      {!hideRequirementsInput && (
+        <div className="mb-6">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {isExistingConversation ? 'Nuevos requerimientos' : 'Requerimientos del sistema'}
+            </label>
+            <textarea
+              value={requirements}
+              onChange={(e) => setRequirements(e.target.value)}
+              placeholder={isExistingConversation ? 
+                "Agrega nuevos requerimientos para expandir o modificar los diagramas..." : 
+                "Describe los requerimientos de tu sistema aquí..."
+              }
+              className="w-full p-4 border border-gray-600 rounded-lg min-h-[120px] bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+              disabled={loading}
+            />
+            {isExistingConversation && (
+              <p className="text-xs text-gray-400 mt-2">
+                Los nuevos requerimientos se combinarán con los existentes para actualizar los diagramas.
+              </p>
+            )}
+          </div>
 
-      <div className="mb-4 flex gap-4">
-        <button
-          onClick={handleAnalyze}
-          disabled={loading || !mermaidLoaded}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-        >
-          {loading ? 'Analizando...' : 'Generar Diagramas'}
-        </button>
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={handleAnalyze}
+              disabled={loading || !mermaidLoaded || !requirements.trim()}
+              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  {isExistingConversation ? 'Actualizar Diagramas' : 'Generar Diagramas'}
+                </>
+              )}
+            </button>
 
-        <button
-          onClick={handleGenerateCode}
-          // Modificada la condición para que funcione cuando hay diagramas cargados
-          disabled={generating || diagrams.length === 0}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
-        >
-          {generating ? 'Generando código...' : 'Generar Código'}
-        </button>
-        
-        {/* Botón de debug para verificar localStorage */}
-        <button
-          onClick={() => {
-            const stored = localStorage.getItem('currentSessionId');
-            alert(`SessionId en localStorage: ${stored || 'No encontrado'}`);
-            console.log('Debug localStorage:', {
-              currentSessionId: localStorage.getItem('currentSessionId'),
-              lastSessionId: localStorage.getItem('lastSessionId'),
-              projectSessionId: localStorage.getItem('projectSessionId')
-            });
-          }}
-          className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm"
-        >
-          Debug SessionId
-        </button>
-      </div>
+            <button
+              onClick={handleGenerateCode}
+              disabled={generating || diagrams.length === 0}
+              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Generando...
+                </>
+              ) : (
+                'Generar Código'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
+      {/* ✅ SOLO MOSTRAR BOTÓN DE GENERAR CÓDIGO SI ESTÁN OCULTOS LOS REQUERIMIENTOS */}
+      {hideRequirementsInput && diagrams.length > 0 && (
+        <div className="mb-6">
+          <button
+            onClick={handleGenerateCode}
+            disabled={generating}
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {generating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Generando código...
+              </>
+            ) : (
+              'Generar Código'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Error Display */}
       {error && (
-        <div className="mb-4 text-red-500 p-2 border border-red-300 rounded">
+        <div className="mb-4 text-red-400 p-4 border border-red-600 rounded-lg bg-red-900/20">
           {error}
         </div>
       )}
 
+      {/* ✅ MENSAJE PARA CONVERSACIONES EXISTENTES SIN DIAGRAMAS */}
+      {isExistingConversation && diagrams.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <h3 className="text-xl font-medium mb-2">Conversación cargada</h3>
+            <p>Use el campo de arriba para continuar la conversación o agregar nuevos requerimientos.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Diagrams Display */}
       {diagrams.length > 0 && (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-12 gap-6">
           {/* Lista de diagramas */}
-          <div className="col-span-3">
-            <h3 className="font-bold mb-2">Diagramas:</h3>
+          <div className="col-span-12 lg:col-span-3">
+            <h3 className="font-bold mb-4 text-gray-300">Diagramas generados:</h3>
             <div className="space-y-2">
               {diagrams.map((diagram, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedDiagram(diagram)}
-                  className={`w-full text-left p-2 rounded ${
-                    selectedDiagram === diagram ? 'bg-blue-100' : 'hover:bg-gray-100'
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    selectedDiagram === diagram 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {diagram.title}
+                  <div className="font-medium">{diagram.title}</div>
+                  <div className="text-xs opacity-75 mt-1">{diagram.type}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Visualización del diagrama */}
-          <div className="col-span-9">
+          <div className="col-span-12 lg:col-span-9">
             {selectedDiagram && (
-              <div className="border rounded-lg p-4 bg-white">
-                <h4 className="font-bold mb-2">{selectedDiagram.title}</h4>
+              <div className="border border-gray-600 rounded-lg p-6 bg-gray-800">
+                <div className="mb-4">
+                  <h4 className="font-bold text-xl text-gray-200 mb-2">{selectedDiagram.title}</h4>
+                  <span className="text-sm text-gray-400 bg-gray-700 px-2 py-1 rounded">
+                    {selectedDiagram.type}
+                  </span>
+                </div>
                 <MermaidDiagram code={selectedDiagram.code} />
               </div>
             )}

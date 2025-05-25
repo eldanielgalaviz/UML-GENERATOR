@@ -17,12 +17,12 @@ export declare class ConversationService {
     private conversations;
     constructor(conversationRepository: Repository<Conversation>);
     createConversation(sessionId: string, originalRequirements: string, userId?: number): Promise<void>;
+    updateConversation(sessionId: string, requirements?: IEEE830Requirement[], diagrams?: MermaidDiagram[], userId?: number): Promise<void>;
+    addMessage(sessionId: string, role: 'user' | 'system', content: string, userId?: number): Promise<void>;
     updateGeneratedCode(sessionId: string, generatedCode: GeneratedCode): void;
     saveGeneratedCode(sessionId: string, userId: number, generatedCode: GeneratedCode): Promise<void>;
     getConversation(sessionId: string): ConversationState | null;
     findConversationById(sessionId: string): Promise<any>;
-    updateConversation(sessionId: string, requirements?: IEEE830Requirement[], diagrams?: MermaidDiagram[], userId?: number): Promise<void>;
-    addMessage(sessionId: string, role: 'user' | 'system', content: string, userId?: number): Promise<void>;
     getFullPrompt(sessionId: string): string;
     getUserConversations(userId: number): Promise<Conversation[]>;
     private generateTitle;

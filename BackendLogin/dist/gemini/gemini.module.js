@@ -8,10 +8,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GeminiModule = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
 const config_1 = require("@nestjs/config");
 const gemini_controller_1 = require("./gemini.controller");
 const gemini_service_1 = require("./gemini.service");
-const conversation_module_1 = require("../conversation/conversation.module");
+const conversation_service_1 = require("../conversation/conversation.service");
+const conversation_entity_1 = require("../conversation/entities/conversation.entity");
 let GeminiModule = class GeminiModule {
 };
 exports.GeminiModule = GeminiModule;
@@ -19,10 +21,10 @@ exports.GeminiModule = GeminiModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule,
-            conversation_module_1.ConversationModule
+            typeorm_1.TypeOrmModule.forFeature([conversation_entity_1.Conversation])
         ],
         controllers: [gemini_controller_1.GeminiController],
-        providers: [gemini_service_1.GeminiService],
+        providers: [gemini_service_1.GeminiService, conversation_service_1.ConversationService],
     })
 ], GeminiModule);
 //# sourceMappingURL=gemini.module.js.map

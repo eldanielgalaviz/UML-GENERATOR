@@ -25,6 +25,7 @@ let ConversationService = ConversationService_1 = class ConversationService {
         this.conversations = new Map();
     }
     async createConversation(sessionId, originalRequirements, userId) {
+        console.log(`🔄 Creando conversación - SessionId: ${sessionId}, UserId: ${userId}`);
         this.conversations.set(sessionId, {
             originalRequirements,
             requirements: [],
@@ -38,6 +39,7 @@ let ConversationService = ConversationService_1 = class ConversationService {
         });
         if (userId) {
             try {
+                console.log(`💾 Guardando conversación en BD para usuario ${userId}`);
                 const conversation = this.conversationRepository.create({
                     sessionId,
                     title: this.generateTitle(originalRequirements),
@@ -52,12 +54,83 @@ let ConversationService = ConversationService_1 = class ConversationService {
                     ],
                     userId
                 });
-                await this.conversationRepository.save(conversation);
-                this.logger.log(`Conversación guardada en BD para usuario ${userId} con ID: ${conversation.id}`);
+                const savedConversation = await this.conversationRepository.save(conversation);
+                console.log(`✅ Conversación guardada en BD con ID: ${savedConversation.id}`);
+                this.logger.log(`Conversación guardada en BD para usuario ${userId} con ID: ${savedConversation.id}`);
             }
             catch (error) {
+                console.error(`❌ Error al guardar conversación en BD: ${error.message}`);
                 this.logger.error(`Error al guardar conversación en BD: ${error.message}`);
             }
+        }
+        else {
+            console.warn(`⚠️ No se proporcionó userId, conversación solo en memoria`);
+        }
+    }
+    async updateConversation(sessionId, requirements, diagrams, userId) {
+        console.log(`🔄 Actualizando conversación - SessionId: ${sessionId}, UserId: ${userId}`);
+        const conversation = this.getConversation(sessionId);
+        if (!conversation) {
+            throw new Error(`Conversación con ID ${sessionId} no encontrada`);
+        }
+        if (requirements) {
+            conversation.requirements = requirements;
+        }
+        if (diagrams) {
+            conversation.diagrams = diagrams;
+        }
+        this.conversations.set(sessionId, conversation);
+        if (userId) {
+            try {
+                console.log(`💾 Actualizando conversación en BD para usuario ${userId}`);
+                const updateResult = await this.conversationRepository.update({ sessionId, userId }, {
+                    requirements: conversation.requirements,
+                    diagrams: conversation.diagrams,
+                    messages: conversation.messages,
+                    updatedAt: new Date()
+                });
+                console.log(`✅ Conversación actualizada en BD. Filas afectadas: ${updateResult.affected}`);
+                if (updateResult.affected === 0) {
+                    console.warn(`⚠️ No se encontró conversación en BD para actualizar: ${sessionId}`);
+                    await this.createOrUpdateConversation(sessionId, conversation.originalRequirements, userId, conversation.requirements, conversation.diagrams);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Error al actualizar conversación en BD: ${error.message}`);
+                this.logger.error(`Error al actualizar conversación en BD: ${error.message}`);
+            }
+        }
+        else {
+            console.warn(`⚠️ No se proporcionó userId, actualización solo en memoria`);
+        }
+    }
+    async addMessage(sessionId, role, content, userId) {
+        console.log(`💬 Añadiendo mensaje - SessionId: ${sessionId}, Role: ${role}, UserId: ${userId}`);
+        const conversation = this.getConversation(sessionId);
+        if (!conversation) {
+            throw new Error(`Conversación con ID ${sessionId} no encontrada`);
+        }
+        conversation.messages.push({ role, content });
+        this.conversations.set(sessionId, conversation);
+        if (userId) {
+            try {
+                console.log(`💾 Guardando mensaje en BD para usuario ${userId}`);
+                const updateResult = await this.conversationRepository.update({ sessionId, userId }, {
+                    messages: conversation.messages,
+                    updatedAt: new Date()
+                });
+                console.log(`✅ Mensaje guardado en BD. Filas afectadas: ${updateResult.affected}`);
+                if (updateResult.affected === 0) {
+                    console.warn(`⚠️ No se encontró conversación en BD para guardar mensaje: ${sessionId}`);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Error al añadir mensaje en BD: ${error.message}`);
+                this.logger.error(`Error al añadir mensaje en BD: ${error.message}`);
+            }
+        }
+        else {
+            console.warn(`⚠️ No se proporcionó userId, mensaje solo en memoria`);
         }
     }
     updateGeneratedCode(sessionId, generatedCode) {
@@ -117,51 +190,6 @@ let ConversationService = ConversationService_1 = class ConversationService {
         catch (error) {
             this.logger.error(`Error al buscar conversación en BD: ${error.message}`);
             return null;
-        }
-    }
-    async updateConversation(sessionId, requirements, diagrams, userId) {
-        const conversation = this.getConversation(sessionId);
-        if (!conversation) {
-            throw new Error(`Conversación con ID ${sessionId} no encontrada`);
-        }
-        if (requirements) {
-            conversation.requirements = requirements;
-        }
-        if (diagrams) {
-            conversation.diagrams = diagrams;
-        }
-        this.conversations.set(sessionId, conversation);
-        if (userId) {
-            try {
-                await this.conversationRepository.update({ sessionId }, {
-                    requirements: conversation.requirements,
-                    diagrams: conversation.diagrams,
-                    messages: conversation.messages,
-                    updatedAt: new Date()
-                });
-            }
-            catch (error) {
-                this.logger.error(`Error al actualizar conversación en BD: ${error.message}`);
-            }
-        }
-    }
-    async addMessage(sessionId, role, content, userId) {
-        const conversation = this.getConversation(sessionId);
-        if (!conversation) {
-            throw new Error(`Conversación con ID ${sessionId} no encontrada`);
-        }
-        conversation.messages.push({ role, content });
-        this.conversations.set(sessionId, conversation);
-        if (userId) {
-            try {
-                await this.conversationRepository.update({ sessionId }, {
-                    messages: conversation.messages,
-                    updatedAt: new Date()
-                });
-            }
-            catch (error) {
-                this.logger.error(`Error al añadir mensaje en BD: ${error.message}`);
-            }
         }
     }
     getFullPrompt(sessionId) {

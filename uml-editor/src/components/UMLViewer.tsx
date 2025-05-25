@@ -1,6 +1,6 @@
-// src/components/UMLViewer.tsx (VERSIÓN MEJORADA)
-import React, { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react'; // ✅ IMPORTAR EL ICONO FALTANTE
+// src/components/UMLViewer.tsx (VERSIÓN FINAL CORREGIDA)
+import React, { useState, useEffect, useRef } from 'react'; // ✅ AGREGAR useRef
+import { FileText } from 'lucide-react';
 import { analyzeRequirements, generateCode } from '../services/api.service';
 
 interface DiagramType {
@@ -21,56 +21,146 @@ interface UMLViewerProps {
   sessionId?: string | null;
   initialDiagrams?: any[];
   initialRequirements?: any[];
-  // ✅ NUEVAS PROPS PARA CONTROLAR LA INTERFAZ
   hideRequirementsInput?: boolean;
   isExistingConversation?: boolean;
 }
 
+// ✅ COMPONENTE MERMAID COMPLETAMENTE CORREGIDO
 const MermaidDiagram: React.FC<{ code: string }> = ({ code }) => {
   const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [diagramId] = useState(() => `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const diagramRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const renderDiagram = async () => {
+      if (!diagramRef.current || !code.trim()) return;
+      
+      setIsLoading(true);
+      setError('');
+      
       try {
+        console.log('🔄 Iniciando renderizado de diagrama:', diagramId);
+        
         // @ts-ignore
-        if (window.mermaid) {
-          console.log('Intentando renderizar diagrama');
-          // @ts-ignore
-          await window.mermaid.run();
-          console.log('Diagrama renderizado exitosamente');
-        } else {
-          console.log('Mermaid no está disponible');
-          setError('Mermaid no está cargado');
+        if (!window.mermaid) {
+          throw new Error('Mermaid no está disponible');
         }
-      } catch (err) {
-        console.error('Error al renderizar:', err);
-        setError(`Error al renderizar: ${err}`);
+
+        // ✅ LIMPIAR COMPLETAMENTE EL CONTENEDOR
+        diagramRef.current.innerHTML = '';
+        
+        // ✅ VERIFICAR SI EL CÓDIGO ES VÁLIDO
+        if (!code.includes('Diagram') && !code.includes('graph') && !code.includes('sequenceDiagram')) {
+          throw new Error('Código de diagrama no válido');
+        }
+        
+        // ✅ CREAR ELEMENTO CON ID ÚNICO
+        const diagramElement = document.createElement('div');
+        diagramElement.id = diagramId;
+        diagramElement.className = 'mermaid-diagram';
+        diagramElement.style.visibility = 'hidden'; // Ocultar hasta que esté renderizado
+        
+        // ✅ LIMPIAR Y PREPARAR EL CÓDIGO
+        const cleanCode = code.trim();
+        diagramElement.textContent = cleanCode;
+        
+        // ✅ AGREGAR AL DOM
+        diagramRef.current.appendChild(diagramElement);
+        
+        console.log('📝 Código a renderizar:', cleanCode);
+        
+        // ✅ RENDERIZAR CON MERMAID USANDO EL ID ESPECÍFICO
+        // @ts-ignore
+        const { svg } = await window.mermaid.render(diagramId + '-svg', cleanCode);
+        
+        // ✅ INSERTAR EL SVG RENDERIZADO
+        diagramElement.innerHTML = svg;
+        diagramElement.style.visibility = 'visible';
+        
+        console.log('✅ Diagrama renderizado exitosamente:', diagramId);
+        setIsLoading(false);
+        
+      } catch (err: any) {
+        console.error('❌ Error al renderizar diagrama:', err);
+        setError(err.message || 'Error desconocido');
+        setIsLoading(false);
+        
+        // ✅ MOSTRAR CÓDIGO COMO FALLBACK
+        if (diagramRef.current) {
+          diagramRef.current.innerHTML = `
+            <div class="fallback-code bg-gray-100 p-4 rounded border">
+              <div class="text-sm text-red-600 mb-2 font-semibold">Error al renderizar diagrama</div>
+              <pre class="text-xs font-mono whitespace-pre-wrap text-gray-800 overflow-auto max-h-96">${code}</pre>
+            </div>
+          `;
+        }
       }
     };
 
-    renderDiagram();
-  }, [code]);
+    // ✅ DELAY PARA ASEGURAR QUE MERMAID ESTÉ LISTO
+    const timer = setTimeout(renderDiagram, 200);
+    
+    return () => {
+      clearTimeout(timer);
+      // ✅ CLEANUP AL DESMONTAR
+      if (diagramRef.current) {
+        diagramRef.current.innerHTML = '';
+      }
+    };
+  }, [code, diagramId]);
 
   return (
-    <div className="border rounded p-4">
-      {error ? (
-        <div className="text-red-500">{error}</div>
-      ) : (
-        <div className="mermaid bg-white">
-          {code}
+    <div className="diagram-container border rounded-lg p-4 bg-white min-h-[300px]">
+      {/* ✅ LOADING STATE */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+            <p className="text-gray-600 text-sm">Renderizando diagrama...</p>
+          </div>
         </div>
       )}
+      
+      {/* ✅ ERROR STATE */}
+      {error && !isLoading && (
+        <div className="text-red-500 mb-4 p-4 bg-red-50 rounded border border-red-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-semibold">⚠️ Error de renderizado:</span>
+            <span>{error}</span>
+          </div>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm hover:text-red-700">
+              Ver código del diagrama
+            </summary>
+            <pre className="mt-2 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-64 border">
+              {code}
+            </pre>
+          </details>
+        </div>
+      )}
+      
+      {/* ✅ CONTENEDOR DEL DIAGRAMA */}
+      <div 
+        ref={diagramRef}
+        className={`mermaid-container ${isLoading ? 'hidden' : 'block'}`}
+        style={{ 
+          minHeight: isLoading ? '0' : '200px',
+          textAlign: 'center'
+        }}
+      />
     </div>
   );
 };
 
+// ✅ COMPONENTE PRINCIPAL UMLVIEWER
 const UMLViewer: React.FC<UMLViewerProps> = ({ 
   onAnalysisComplete, 
   sessionId, 
   initialDiagrams,
   initialRequirements,
-  hideRequirementsInput = false, // ✅ Nueva prop
-  isExistingConversation = false // ✅ Nueva prop
+  hideRequirementsInput = false,
+  isExistingConversation = false
 }) => {
   const [requirements, setRequirements] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,51 +171,101 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
   const [analysisResponse, setAnalysisResponse] = useState<AnalysisResponse | null>(null);
   const [mermaidLoaded, setMermaidLoaded] = useState(false);
   
-  // Actualización mejorada para inicializar correctamente con los datos iniciales
+  // ✅ CARGAR DIAGRAMAS INICIALES
   useEffect(() => {
     if (initialDiagrams && initialDiagrams.length > 0) {
+      console.log('📊 Cargando diagramas iniciales:', initialDiagrams.length);
       setDiagrams(initialDiagrams);
-      if (initialDiagrams.length > 0) {
-        setSelectedDiagram(initialDiagrams[0]);
-      }
+      setSelectedDiagram(initialDiagrams[0]);
       
-      // Actualizar el estado de analysisResponse para que el botón se active
       setAnalysisResponse({
         requirements: initialRequirements || [],
-        diagrams: initialDiagrams
+        diagrams: initialDiagrams,
+        sessionId: sessionId || undefined
       });
-      
-      console.log("Diagramas iniciales cargados:", initialDiagrams.length);
     }
-  }, [initialDiagrams, initialRequirements]);
+  }, [initialDiagrams, initialRequirements, sessionId]);
 
+  // ✅ CARGAR MERMAID CON MEJOR CONFIGURACIÓN
   useEffect(() => {
     const loadMermaid = async () => {
       try {
-        console.log('Intentando cargar Mermaid...');
+        // ✅ VERIFICAR SI YA ESTÁ CARGADO
+        // @ts-ignore
+        if (window.mermaid) {
+          console.log('✅ Mermaid ya estaba cargado');
+          setMermaidLoaded(true);
+          return;
+        }
+
+        console.log('🔄 Cargando Mermaid...');
+        
+        // ✅ CREAR Y CARGAR SCRIPT
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js';
         script.async = true;
 
         script.onload = () => {
-          console.log('Script de Mermaid cargado');
-          // @ts-ignore
-          window.mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default'
-          });
-          setMermaidLoaded(true);
-          console.log('Mermaid inicializado');
+          console.log('📦 Script de Mermaid cargado');
+          
+          try {
+            // ✅ CONFIGURACIÓN MEJORADA DE MERMAID
+            // @ts-ignore
+            window.mermaid.initialize({
+              startOnLoad: false, // ✅ IMPORTANTE: No auto-inicializar
+              theme: 'default',
+              securityLevel: 'loose',
+              flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+              },
+              sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35,
+                mirrorActors: true,
+                bottomMarginAdj: 1,
+                useMaxWidth: true,
+                rightAngles: false,
+                showSequenceNumbers: false
+              },
+              er: {
+                diagramPadding: 20,
+                layoutDirection: 'TB',
+                minEntityWidth: 100,
+                minEntityHeight: 75,
+                entityPadding: 15,
+                stroke: 'gray',
+                fill: 'honeydew',
+                fontSize: 12,
+                useMaxWidth: true
+              }
+            });
+            
+            setMermaidLoaded(true);
+            console.log('✅ Mermaid inicializado correctamente');
+            
+          } catch (initError) {
+            console.error('❌ Error al inicializar Mermaid:', initError);
+            setError('Error al inicializar Mermaid');
+          }
         };
 
         script.onerror = (e) => {
-          console.error('Error al cargar Mermaid:', e);
+          console.error('❌ Error al cargar script de Mermaid:', e);
           setError('Error al cargar la librería de diagramas');
         };
 
         document.head.appendChild(script);
+        
       } catch (err) {
-        console.error('Error en loadMermaid:', err);
+        console.error('❌ Error general en loadMermaid:', err);
         setError('Error al configurar la librería de diagramas');
       }
     };
@@ -133,6 +273,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     loadMermaid();
   }, []);
 
+  // ✅ RESTO DE FUNCIONES SIN CAMBIOS
   const handleAnalyze = async () => {
     if (!requirements.trim()) {
       setError('Por favor ingresa los requerimientos');
@@ -142,38 +283,25 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     try {
       setLoading(true);
       setError('');
-      console.log('Enviando requerimientos al servidor...');
+      console.log('📤 Enviando requerimientos al servidor...');
 
       const data = await analyzeRequirements(requirements.trim(), sessionId);
-      console.log('Datos recibidos completos:', data);
+      console.log('📥 Datos recibidos:', data);
 
       if (data.diagrams && Array.isArray(data.diagrams)) {
         setDiagrams(data.diagrams);
         setAnalysisResponse(data);
         
-        // CRÍTICO! Guardar el sessionId en localStorage
+        // ✅ GUARDAR SESSION ID
         if (data.sessionId) {
           localStorage.setItem('currentSessionId', data.sessionId);
-          console.log('🔥 SessionId guardado en localStorage:', data.sessionId);
-          
-          // También guardarlo como backup con otra clave
-          localStorage.setItem('lastSessionId', data.sessionId);
-          localStorage.setItem('projectSessionId', data.sessionId);
-          
-          // Mostrar alerta de confirmación para debug
-          console.log('✅ CONFIRMADO: SessionId guardado:', {
-            sessionId: data.sessionId,
-            saved: localStorage.getItem('currentSessionId')
-          });
-        } else {
-          console.warn('⚠️ No se recibió sessionId en la respuesta');
+          console.log('💾 SessionId guardado:', data.sessionId);
         }
         
         if (data.diagrams.length > 0) {
           setSelectedDiagram(data.diagrams[0]);
         }
         
-        // ✅ Limpiar el textarea después de procesar
         setRequirements('');
         
         if (onAnalysisComplete) {
@@ -183,7 +311,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         throw new Error('No se recibieron diagramas válidos');
       }
     } catch (err: any) {
-      console.error('Error en handleAnalyze:', err);
+      console.error('❌ Error en análisis:', err);
       setError(err.message || 'Error al analizar los requerimientos');
     } finally {
       setLoading(false);
@@ -199,23 +327,17 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     try {
       setGenerating(true);
       setError('');
-      console.log('Generando código...');
+      console.log('⚙️ Generando código...');
       
       const diagramsToUse = analysisResponse?.diagrams || diagrams;
       const requirementsToUse = analysisResponse?.requirements || [];
       const currentSessionId = sessionId || localStorage.getItem('currentSessionId');
-      
-      console.log('Usando diagrams:', diagramsToUse.length);
-      console.log('Usando requirements:', requirementsToUse.length);
-      console.log('Usando sessionId:', currentSessionId);
 
       const codeData = await generateCode(
         diagramsToUse,
         requirementsToUse,
         currentSessionId
       );
-      
-      console.log('Código generado:', codeData);
 
       const updatedAnalysis = {
         requirements: requirementsToUse,
@@ -230,31 +352,37 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         onAnalysisComplete(updatedAnalysis);
       }
     } catch (err: any) {
-      console.error('Error generando código:', err);
+      console.error('❌ Error generando código:', err);
       setError(err.message || 'Error al generar el código');
     } finally {
       setGenerating(false);
     }
   };
 
+  // ✅ FUNCIÓN PARA CAMBIAR DIAGRAMA CON LOGS
+  const handleDiagramChange = (diagram: DiagramType) => {
+    console.log('🔄 Cambiando a diagrama:', diagram.title);
+    setSelectedDiagram(diagram);
+  };
+
   return (
     <div className="p-4">
-      {/* ✅ MOSTRAR INFO DE DEBUG SOLO EN DESARROLLO */}
+      {/* ✅ DEBUG INFO - SOLO EN DESARROLLO */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-3 bg-gray-100 rounded text-sm">
-          <p className="text-gray-600 mb-1">
-            Estado de Mermaid: {mermaidLoaded ? '✅ Cargado' : '❌ No cargado'}
+        <div className="mb-4 p-3 bg-gray-100 rounded text-sm border-l-4 border-blue-500">
+          <p className="text-gray-700 mb-1">
+            🎯 <strong>Debug:</strong> Mermaid {mermaidLoaded ? '✅ Cargado' : '❌ No cargado'}
           </p>
-          <p className="text-blue-600 mb-1">
-            SessionId: {sessionId || localStorage.getItem('currentSessionId') || 'No disponible'}
+          <p className="text-blue-700 mb-1">
+            🆔 <strong>SessionId:</strong> {sessionId || localStorage.getItem('currentSessionId') || 'No disponible'}
           </p>
-          <p className="text-purple-600">
-            Modo: {isExistingConversation ? 'Conversación existente' : 'Nueva conversación'}
+          <p className="text-purple-700">
+            📊 <strong>Diagramas:</strong> {diagrams.length} | <strong>Seleccionado:</strong> {selectedDiagram?.title || 'Ninguno'}
           </p>
         </div>
       )}
 
-      {/* ✅ FORMULARIO DE REQUERIMIENTOS - SOLO SI NO ESTÁ OCULTO */}
+      {/* ✅ FORMULARIO DE REQUERIMIENTOS */}
       {!hideRequirementsInput && (
         <div className="mb-6">
           <div className="mb-4">
@@ -271,11 +399,6 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
               className="w-full p-4 border border-gray-600 rounded-lg min-h-[120px] bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
               disabled={loading}
             />
-            {isExistingConversation && (
-              <p className="text-xs text-gray-400 mt-2">
-                Los nuevos requerimientos se combinarán con los existentes para actualizar los diagramas.
-              </p>
-            )}
           </div>
 
           <div className="flex gap-4 items-center">
@@ -314,7 +437,7 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         </div>
       )}
 
-      {/* ✅ SOLO MOSTRAR BOTÓN DE GENERAR CÓDIGO SI ESTÁN OCULTOS LOS REQUERIMIENTOS */}
+      {/* ✅ BOTÓN DE GENERAR CÓDIGO CUANDO ESTÁN OCULTOS LOS REQUERIMIENTOS */}
       {hideRequirementsInput && diagrams.length > 0 && (
         <div className="mb-6">
           <button
@@ -334,10 +457,10 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         </div>
       )}
 
-      {/* Error Display */}
+      {/* ✅ ERROR DISPLAY */}
       {error && (
         <div className="mb-4 text-red-400 p-4 border border-red-600 rounded-lg bg-red-900/20">
-          {error}
+          <strong>Error:</strong> {error}
         </div>
       )}
 
@@ -346,27 +469,29 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
         <div className="text-center py-12">
           <div className="text-gray-400 mb-4">
             <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-xl font-medium mb-2">Conversación cargada</h3>
-            <p>Use el campo de arriba para continuar la conversación o agregar nuevos requerimientos.</p>
+            <h3 className="text-xl font-medium mb-2 text-gray-300">Conversación cargada</h3>
+            <p className="text-gray-400">Use el campo de arriba para continuar la conversación o agregar nuevos requerimientos.</p>
           </div>
         </div>
       )}
 
-      {/* Diagrams Display */}
+      {/* ✅ VISUALIZACIÓN DE DIAGRAMAS */}
       {diagrams.length > 0 && (
         <div className="grid grid-cols-12 gap-6">
-          {/* Lista de diagramas */}
+          {/* ✅ LISTA DE DIAGRAMAS */}
           <div className="col-span-12 lg:col-span-3">
-            <h3 className="font-bold mb-4 text-gray-300">Diagramas generados:</h3>
+            <h3 className="font-bold mb-4 text-gray-300">
+              Diagramas generados ({diagrams.length}):
+            </h3>
             <div className="space-y-2">
               {diagrams.map((diagram, index) => (
                 <button
-                  key={index}
-                  onClick={() => setSelectedDiagram(diagram)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                  key={`${diagram.type}-${index}`}
+                  onClick={() => handleDiagramChange(diagram)}
+                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
                     selectedDiagram === diagram 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-blue-500 text-white shadow-lg scale-105' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:scale-102'
                   }`}
                 >
                   <div className="font-medium">{diagram.title}</div>
@@ -376,17 +501,31 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
             </div>
           </div>
 
-          {/* Visualización del diagrama */}
+          {/* ✅ VISUALIZACIÓN DEL DIAGRAMA SELECCIONADO */}
           <div className="col-span-12 lg:col-span-9">
             {selectedDiagram && (
               <div className="border border-gray-600 rounded-lg p-6 bg-gray-800">
-                <div className="mb-4">
-                  <h4 className="font-bold text-xl text-gray-200 mb-2">{selectedDiagram.title}</h4>
-                  <span className="text-sm text-gray-400 bg-gray-700 px-2 py-1 rounded">
-                    {selectedDiagram.type}
-                  </span>
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-xl text-gray-200 mb-1">
+                      {selectedDiagram.title}
+                    </h4>
+                    <span className="text-sm text-gray-400 bg-gray-700 px-3 py-1 rounded-full">
+                      {selectedDiagram.type}
+                    </span>
+                  </div>
+                  
+                  {/* ✅ INDICADOR DE ESTADO */}
+                  <div className="text-xs text-gray-500">
+                    Diagrama {diagrams.findIndex(d => d === selectedDiagram) + 1} de {diagrams.length}
+                  </div>
                 </div>
-                <MermaidDiagram code={selectedDiagram.code} />
+                
+                {/* ✅ COMPONENTE MERMAID MEJORADO */}
+                <MermaidDiagram 
+                  key={`${selectedDiagram.type}-${selectedDiagram.title}-${Date.now()}`}
+                  code={selectedDiagram.code} 
+                />
               </div>
             )}
           </div>

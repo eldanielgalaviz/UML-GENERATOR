@@ -24,16 +24,24 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Manejar la respuesta del análisis de requerimientos
-  const handleAnalysisComplete = (response: AnalysisResponse) => {
-    console.log("Análisis completado:", response);
-    setAnalysisResponse(response);
-    setCurrentSessionId(response.sessionId || null);
+const handleAnalysisComplete = (response: AnalysisResponse) => {
+  console.log("Análisis completado:", response);
+  
+  // CRÍTICO: Guardar sessionId explícitamente
+  if (response.sessionId) {
+    localStorage.setItem('currentSessionId', response.sessionId);
+    localStorage.setItem('lastAnalysisResponse', JSON.stringify(response));
+    console.log("🔥 SessionId guardado desde ChatInterface:", response.sessionId);
+  }
+  
+  setAnalysisResponse(response);
+  setCurrentSessionId(response.sessionId || null);
 
-    // Si hay código generado, permitir cambiar a la pestaña de código
-    if (response.generatedCode) {
-      setActiveTab("code");
-    }
-  };
+  // Si hay código generado, permitir cambiar a la pestaña de código
+  if (response.generatedCode) {
+    setActiveTab("code");
+  }
+};
 
   // Cargar una conversación existente
 // src/components/chat-interface.tsx

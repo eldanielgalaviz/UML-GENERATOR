@@ -11,6 +11,7 @@ interface AnalysisResponse {
   requirements: any[];
   diagrams: DiagramType[];
   generatedCode?: any;
+  sessionId?: string; // Asegúrate de que esto esté incluido
 }
 
 interface UMLViewerProps {
@@ -125,46 +126,59 @@ const UMLViewer: React.FC<UMLViewerProps> = ({
     loadMermaid();
   }, []);
 
-const handleAnalyze = async () => {
-  if (!requirements.trim()) {
-    setError('Por favor ingresa los requerimientos');
-    return;
-  }
-
-  try {
-    setLoading(true);
-    setError('');
-    console.log('Enviando requerimientos al servidor...');
-
-    const data = await analyzeRequirements(requirements.trim(), sessionId);
-    console.log('Datos recibidos:', data);
-
-    if (data.diagrams && Array.isArray(data.diagrams)) {
-      setDiagrams(data.diagrams);
-      setAnalysisResponse(data);
-      
-      // Guardar el sessionId en localStorage
-      if (data.sessionId) {
-        localStorage.setItem('currentSessionId', data.sessionId);
-        console.log('ID de sesión guardado:', data.sessionId);
-      }
-      
-      if (data.diagrams.length > 0) {
-        setSelectedDiagram(data.diagrams[0]);
-      }
-      if (onAnalysisComplete) {
-        onAnalysisComplete(data);
-      }
-    } else {
-      throw new Error('No se recibieron diagramas válidos');
+  const handleAnalyze = async () => {
+    if (!requirements.trim()) {
+      setError('Por favor ingresa los requerimientos');
+      return;
     }
-  } catch (err: any) {
-    console.error('Error en handleAnalyze:', err);
-    setError(err.message || 'Error al analizar los requerimientos');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    try {
+      setLoading(true);
+      setError('');
+      console.log('Enviando requerimientos al servidor...');
+
+      const data = await analyzeRequirements(requirements.trim(), sessionId);
+      console.log('Datos recibidos completos:', data);
+
+      if (data.diagrams && Array.isArray(data.diagrams)) {
+        setDiagrams(data.diagrams);
+        setAnalysisResponse(data);
+        
+        // ¡CRÍTICO! Guardar el sessionId en localStorage
+        if (data.sessionId) {
+          localStorage.setItem('currentSessionId', data.sessionId);
+          console.log('🔥 SessionId guardado en localStorage:', data.sessionId);
+          
+          // También guardarlo como backup con otra clave
+          localStorage.setItem('lastSessionId', data.sessionId);
+          localStorage.setItem('projectSessionId', data.sessionId);
+          
+          // Mostrar alerta de confirmación para debug
+          console.log('✅ CONFIRMADO: SessionId guardado:', {
+            sessionId: data.sessionId,
+            saved: localStorage.getItem('currentSessionId')
+          });
+        } else {
+          console.warn('⚠️ No se recibió sessionId en la respuesta');
+        }
+        
+        if (data.diagrams.length > 0) {
+          setSelectedDiagram(data.diagrams[0]);
+        }
+        
+        if (onAnalysisComplete) {
+          onAnalysisComplete(data);
+        }
+      } else {
+        throw new Error('No se recibieron diagramas válidos');
+      }
+    } catch (err: any) {
+      console.error('Error en handleAnalyze:', err);
+      setError(err.message || 'Error al analizar los requerimientos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGenerateCode = async () => {
     // Verificamos si hay diagramas, pero cambiamos la condición para que sea más simple
@@ -182,13 +196,17 @@ const handleAnalyze = async () => {
       const diagramsToUse = analysisResponse?.diagrams || diagrams;
       const requirementsToUse = analysisResponse?.requirements || [];
       
+      // Obtener el sessionId actual
+      const currentSessionId = sessionId || localStorage.getItem('currentSessionId');
+      
       console.log('Usando diagrams:', diagramsToUse.length);
       console.log('Usando requirements:', requirementsToUse.length);
+      console.log('Usando sessionId:', currentSessionId);
 
       const codeData = await generateCode(
         diagramsToUse,
         requirementsToUse,
-        sessionId
+        currentSessionId
       );
       
       console.log('Código generado:', codeData);
@@ -197,7 +215,8 @@ const handleAnalyze = async () => {
       const updatedAnalysis = {
         requirements: requirementsToUse,
         diagrams: diagramsToUse,
-        generatedCode: codeData
+        generatedCode: codeData,
+        sessionId: currentSessionId // Asegurar que el sessionId se mantenga
       };
 
       setAnalysisResponse(updatedAnalysis);
@@ -218,6 +237,11 @@ const handleAnalyze = async () => {
       <div className="mb-4">
         <p className="text-sm text-gray-600 mb-2">
           Estado de Mermaid: {mermaidLoaded ? 'Cargado' : 'No cargado'}
+        </p>
+        
+        {/* Mostrar sessionId actual para debug */}
+        <p className="text-xs text-blue-600 mb-2">
+          SessionId actual: {sessionId || localStorage.getItem('currentSessionId') || 'No disponible'}
         </p>
       </div>
 
@@ -246,6 +270,22 @@ const handleAnalyze = async () => {
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
         >
           {generating ? 'Generando código...' : 'Generar Código'}
+        </button>
+        
+        {/* Botón de debug para verificar localStorage */}
+        <button
+          onClick={() => {
+            const stored = localStorage.getItem('currentSessionId');
+            alert(`SessionId en localStorage: ${stored || 'No encontrado'}`);
+            console.log('Debug localStorage:', {
+              currentSessionId: localStorage.getItem('currentSessionId'),
+              lastSessionId: localStorage.getItem('lastSessionId'),
+              projectSessionId: localStorage.getItem('projectSessionId')
+            });
+          }}
+          className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm"
+        >
+          Debug SessionId
         </button>
       </div>
 

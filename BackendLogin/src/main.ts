@@ -9,8 +9,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:5173', 
       'http://localhost:4200',
-      'https://uml-generator-4gsb-7h20ufsp8-jesusdanielgfim-uasedumxs-projects.vercel.app/',
-      'https://uml-generator-4gsb-jesusdanielgfim-uasedumxs-projects.vercel.app', // Tu URL de Vercel
+      'https://uml-generator-4gsb-jesusdanielgfim-uasedumxs-projects.vercel.app', // Sin la barra final
       /\.vercel\.app$/ // Permitir cualquier subdominio de vercel.app
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
@@ -19,8 +18,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Puerto dinámico para Render (por defecto usa 10000)
-  const port = process.env.PORT || 3005;
+  // Puerto dinámico para Render (usa 10000 por defecto)
+  const port = process.env.PORT || 10000;
   await app.listen(port, '0.0.0.0'); // 0.0.0.0 es importante para Render
   
   console.log(`🚀 Servidor ejecutándose en puerto: ${port}`);

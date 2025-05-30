@@ -14,16 +14,38 @@ import { ConversationModule } from './conversation/conversation.module';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'dpg-d0t1ja95pdvs73eem3v0-a.oregon-postgres.render.com'),
-        port: configService.get('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'umluser'),
-        password: configService.get('DB_PASSWORD', 'C1882Qfc1nT7ARrvb3yJAA3y9giSbNBR'),
-        database: configService.get('DB_NAME', 'umlgenerator'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        
+        // Si estás en producción, usar DATABASE_URL directamente
+        if (isProduction && configService.get('DATABASE_URL')) {
+          return {
+            type: 'postgres',
+            url: configService.get('DATABASE_URL'),
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: true, // ⚠️ Cambiar a false en producción real
+            ssl: {
+              rejectUnauthorized: false, // Necesario para Render
+            },
+            logging: false, // Reducir logs en producción
+          };
+        }
+        
+        // Configuración para desarrollo o cuando no hay DATABASE_URL
+        return {
+          type: 'postgres',
+          host: configService.get('DB_HOST', 'localhost'),
+          port: parseInt(configService.get('DB_PORT', '5432')),
+          username: configService.get('DB_USERNAME', 'postgres'),
+          password: configService.get('DB_PASSWORD', 'admin'),
+          database: configService.get('DB_NAME', 'UMLGENERATOR'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: true,
+          ssl: isProduction ? {
+            rejectUnauthorized: false
+          } : false,
+        };
+      },
       inject: [ConfigService],
     }),
     AuthModule,
@@ -33,4 +55,3 @@ import { ConversationModule } from './conversation/conversation.module';
   ],
 })
 export class AppModule {}
-

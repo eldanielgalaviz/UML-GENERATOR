@@ -28,7 +28,7 @@ interface GeneratedCode {
   database?: any;
 }
 
-const API_URL = 'http://localhost:3005/api'; // Ajusta según tu configuración
+const API_URL = 'https://uml-generator-backend.onrender.com/api'; // Ajusta según tu configuración
 
 // Función para obtener el token de autenticación
 const getAuthHeaders = () => {

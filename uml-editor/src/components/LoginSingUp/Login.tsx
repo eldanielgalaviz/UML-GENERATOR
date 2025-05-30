@@ -10,7 +10,7 @@ interface FormData {
   [key: string]: string;
 }
 
-const API_URL = "http://localhost:3005";
+const API_URL = "https://uml-generator-backend.onrender.com";
 
 const LoginAccess = () => {
   const [action, setAction] = useState<"Iniciar Sesión" | "Registrarse">("Iniciar Sesión");

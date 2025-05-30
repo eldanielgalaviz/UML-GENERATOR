@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: uml-generator-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd BackendLogin && npm install && npm run build
+    startCommand: cd BackendLogin && npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production

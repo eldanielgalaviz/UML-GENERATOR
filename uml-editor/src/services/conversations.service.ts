@@ -15,7 +15,7 @@ interface Conversation {
   updatedAt: string;
 }
 
-const API_URL = 'http://localhost:3005/api';
+const API_URL = 'https://uml-generator-backend.onrender.com/api';
 
 // Función mejorada para obtener los headers de autenticación
 const getAuthHeaders = () => {

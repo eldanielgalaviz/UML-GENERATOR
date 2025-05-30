@@ -9,7 +9,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:5173', 
       'http://localhost:4200',
-      'https://uml-generator-4gsb-7h20ufsp8-jesusdanielgfim-uasedumxs-projects.vercel.app/'
+      'https://uml-generator-4gsb-7h20ufsp8-jesusdanielgfim-uasedumxs-projects.vercel.app/',
       'https://uml-generator-4gsb-jesusdanielgfim-uasedumxs-projects.vercel.app', // Tu URL de Vercel
       /\.vercel\.app$/ // Permitir cualquier subdominio de vercel.app
     ],
